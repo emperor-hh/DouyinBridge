@@ -99,6 +99,14 @@ export class Gateway {
   async actions(action,params){
     switch(action){
       case 'get_login_info':return {user_id:this.selfId,nickname:'DouyinLuma'};
+      case 'get_group_member_info':{
+        const native=this.store.lookup('group',params.group_id),contact=this.contacts.get(native);
+        if(!contact||!contact.isGroup||!this.isAllowed(contact))throw disabled();
+        if(Number(params.user_id)!==this.selfId)
+          throw Object.assign(Error('group member information unavailable'),{retcode:1404});
+        return {group_id:Number(params.group_id),user_id:this.selfId,nickname:'DouyinLuma',
+          card:'DouyinLuma',sex:'unknown',age:0,role:'member',title:'',card_changeable:false};
+      }
       case 'get_status':return {online:this.running,good:this.running};
       case 'can_send_image':return {yes:false};
       case 'can_send_record':return {yes:false};
@@ -129,7 +137,7 @@ export class Gateway {
       // click cannot be retracted after it reaches the platform.
       if(!this.isAllowed(c))throw disabled();
       const expectedContact={...c,
-        authorizationKind:c.isGroup?'existing-group':c.followed===true?'following':'existing-conversation',
+        authorizationKind:'manual',
         verifiedAt:new Date().toISOString()};
       const result=await this.driver.sendMessage(native,text,{
         allowed:true,expectedContact,expectedMessageIds:rows.map(x=>x.id)
