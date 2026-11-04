@@ -38,6 +38,8 @@ export class AllowlistStore {
       request_key TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,
       created_at INTEGER NOT NULL
     );`);
+    if(!this.db.prepare('PRAGMA table_info(conversations)').all().some(row=>row.name==='sticker_enabled'))
+      this.db.exec('ALTER TABLE conversations ADD COLUMN sticker_enabled INTEGER NOT NULL DEFAULT 0 CHECK(sticker_enabled IN (0,1))');
     // Legacy env IDs are only imported when a matching verified contact appears.
     // Never override an explicit database disable on later restarts.
     const migrated=this.db.prepare("SELECT value FROM settings WHERE key='legacy_allowlist_migrated'").get();
@@ -75,8 +77,8 @@ export class AllowlistStore {
       this.db.exec('COMMIT');
     }catch(e){this.db.exec('ROLLBACK');throw e;}
   }
-  list(){return this.db.prepare('SELECT id,kind,name,enabled,cover_enabled,video_enabled,updated_at FROM conversations ORDER BY kind,name COLLATE NOCASE').all()
-    .map(({cover_enabled,video_enabled,...r})=>({...r,enabled:r.enabled===1,coverEnabled:cover_enabled===1,videoEnabled:video_enabled===1}));}
+  list(){return this.db.prepare('SELECT id,kind,name,enabled,cover_enabled,video_enabled,sticker_enabled,updated_at FROM conversations ORDER BY kind,name COLLATE NOCASE').all()
+    .map(({cover_enabled,video_enabled,sticker_enabled,...r})=>({...r,enabled:r.enabled===1,coverEnabled:cover_enabled===1,videoEnabled:video_enabled===1,stickerEnabled:sticker_enabled===1}));}
   lookup(id){if(!CONVERSATION_ID.test(id))return null;
     return this.db.prepare('SELECT * FROM conversations WHERE id=?').get(id)??null;}
   allowed(id,kind,binding){
@@ -127,6 +129,18 @@ export class AllowlistStore {
         .run(requestKey,id,now);
       this.db.exec('COMMIT');return {ok:true};
     }catch(error){this.db.exec('ROLLBACK');throw error;}
+  }
+  stickerAllowed(id,kind,binding){
+    const row=this.lookup(id);
+    return Boolean(row&&row.sticker_enabled===1&&this.allowed(id,kind,binding));
+  }
+  setStickerEnabled(id,enabled){
+    if(!CONVERSATION_ID.test(id)||typeof enabled!=='boolean')
+      throw Object.assign(Error('invalid sticker permission'),{statusCode:400});
+    if(!this.lookup(id))throw Object.assign(Error('conversation not found'),{statusCode:404});
+    this.db.prepare('UPDATE conversations SET sticker_enabled=?,updated_at=? WHERE id=?')
+      .run(enabled?1:0,new Date().toISOString(),id);
+    return this.list().find(row=>row.id===id);
   }
   setEnabled(id,enabled){
     if(!CONVERSATION_ID.test(id)||typeof enabled!=='boolean')throw Object.assign(Error('invalid conversation or enabled'),{statusCode:400});

@@ -4,6 +4,7 @@ import { validatedContact } from './douyin-driver.mjs';
 import { formatIncomingMessage, incomingFingerprintParts, extractCoverFrame, sharedWorkDetails } from './shared-work.mjs';
 import { selectRequestedVideo, formatSampleEvidence } from './video-trigger.mjs';
 import { validateSampleTarget } from './video-sampler.mjs';
+import {parseOutgoingMessage,stickerLabel,extractStickerFrame} from './sticker.mjs';
 
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const digest=x=>createHash('sha256').update(String(x)).digest('hex');
@@ -14,7 +15,7 @@ export class Gateway {
     Object.assign(this,{driver,store,client,config,allowlist,selfId,logger});
     this.baselines=new Map();this.contacts=new Map();
     this.running=false;this.busy=false;this.scanPromise=null;this.lastScan=null;this.lastScanError=null;
-    this.nextScanAt=0;this.scanIntervalMs=60_000;this.videoAbort=new Map();
+    this.nextScanAt=0;this.scanIntervalMs=60_000;this.videoAbort=new Map();this.lastStickerCapture=new Map();
   }
   isScanning(){return Boolean(this.scanPromise);}
   authorizationChanged(id){
@@ -127,6 +128,21 @@ export class Gateway {
       abort.abort();
     }
   }
+  async captureStickerIfAllowed(c,message){
+    if(this.config.receiveStickers===false||message?.media?.type!=='emoji'||
+      typeof this.driver.captureMessage!=='function'||!this.isAllowed(c))return null;
+    if(typeof message.id!=='string'||!/^msg:[a-f0-9]{64}$/.test(message.id))return null;
+    const now=Date.now(),previous=this.lastStickerCapture.get(c.id)??0;
+    if(now-previous<10000)return null;
+    this.lastStickerCapture.set(c.id,now);
+    try{
+      const captured=await this.driver.captureMessage(c.id,message.id,{allowed:true});
+      if(!this.isAllowed(c))return null;
+      return extractStickerFrame(captured,message.id);
+    }catch(error){
+      this.logger.warn?.('[sticker-receive]',error?.message??String(error));return null;
+    }
+  }
   async pollOnce(){
     await this.refresh();
     // Snapshot allowed contacts; check authorization again after awaits.
@@ -145,7 +161,7 @@ export class Gateway {
         for(const {m,k} of incoming){
           if(!this.isAllowed(c))break;
           if(previous.has(k)||!m.latestEndVerified||!m.id)continue;
-          const content=formatIncomingMessage(m,{includeSharedWork:this.config.shareForwarding!==false});
+          const content=stickerLabel(m)??formatIncomingMessage(m,{includeSharedWork:this.config.shareForwarding!==false});
           if(!content)continue;
           if(c.isGroup&&!/^member:[a-f0-9]{64}$/.test(m.memberId??''))continue;
           const senderKey=c.isGroup?m.memberId:c.id;
@@ -155,6 +171,7 @@ export class Gateway {
           const sampled=await this.sampleIfRequested(c,m,rows);
           if(!this.isAllowed(c))break;
           const coverBase64=sampled?.frames?.length?null:
+            m.media?.type==='emoji'?await this.captureStickerIfAllowed(c,m):
             this.config.shareForwarding===false?null:await this.captureCoverIfAllowed(c,m);
           if(!this.isAllowed(c))break;
           this.client.event(messageEvent({selfId:this.selfId,messageId:msgId,conversationId,
@@ -187,7 +204,7 @@ export class Gateway {
           card:'DouyinLuma',sex:'unknown',age:0,role:'member',title:'',card_changeable:false};
       }
       case 'get_status':return {online:this.running,good:this.running};
-      case 'can_send_image':return {yes:false};
+      case 'can_send_image':return {yes:this.config.enableSending&&this.config.enableImageSending===true};
       case 'can_send_record':return {yes:false};
       case 'get_group_list':return [...this.contacts.values()].filter(c=>c.isGroup&&this.isAllowed(c))
         .map(c=>({group_id:this.store.id('group',c.id),group_name:c.name??c.displayName??'抖音群',member_count:0,max_member_count:0}));
@@ -202,8 +219,17 @@ export class Gateway {
     if(!this.config.enableSending)throw Object.assign(Error('sending disabled by ENABLE_SENDING'),{retcode:1403});
     const native=this.store.lookup(kind,id),c=native?this.contacts.get(native):null;
     if(!c||Boolean(c.isGroup)!==(kind==='group')||!this.isAllowed(c))throw disabled();
-    const text=textSegments(message).trim();
-    if(!text||[...text].length>1000)throw Object.assign(Error('text length must be 1-1000'),{retcode:1400});
+    const outgoing=parseOutgoingMessage(message);
+    if(outgoing.type==='image'){
+      if(this.config.enableImageSending!==true||
+        !this.allowlist.stickerAllowed?.(c.id,kind,c.identityBinding))
+        throw Object.assign(Error('image/sticker sending is disabled for this conversation'),{retcode:1403});
+      if(typeof this.driver.sendImageMessage!=='function')
+        throw Object.assign(Error('upstream image sending not available'),{retcode:1404});
+    }
+    const text=outgoing.type==='text'?outgoing.text.trim():'';
+    if(outgoing.type==='text'&&(!text||[...text].length>1000))
+      throw Object.assign(Error('text length must be 1-1000'),{retcode:1400});
     if(this.busy)throw Object.assign(Error('send queue busy; do not automatically retry'),{retcode:1409});
     this.busy=true;
     try{
@@ -218,9 +244,26 @@ export class Gateway {
       const expectedContact={...c,
         authorizationKind:'manual',
         verifiedAt:new Date().toISOString()};
-      const result=await this.driver.sendMessage(native,text,{
-        allowed:true,expectedContact,expectedMessageIds:rows.map(x=>x.id)
-      });
+      let result;
+      if(outgoing.type==='image'){
+        const authorized=()=>this.config.enableSending===true&&
+          this.config.enableImageSending===true&&this.isAllowed(c)&&
+          this.allowlist.stickerAllowed(c.id,kind,c.identityBinding);
+        const authorize=async()=>authorized();
+        authorize.beginDispatch=()=>{
+          if(!authorized())throw disabled();
+          return ()=>{};
+        };
+        if(!authorized())throw disabled();
+        result=await this.driver.sendImageMessage(native,outgoing.asset,{
+          allowed:true,expectedContact,expectedMessageIds:rows.map(x=>x.id),
+          authorize,backgroundOnly:false
+        });
+      }else{
+        result=await this.driver.sendMessage(native,text,{
+          allowed:true,expectedContact,expectedMessageIds:rows.map(x=>x.id)
+        });
+      }
       if(result?.confirmed!==true)throw Object.assign(
         Error(result?.deliveryUncertain?'delivery uncertain, do not retry':'delivery not confirmed'),
         {retcode:result?.deliveryUncertain?1502:1501});

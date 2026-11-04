@@ -26,6 +26,7 @@ export async function loadDriver({upstreamDir,profileDir,headless=true,browserCh
       openSharedVideo: (id,messageId,options)=>chat.openSharedVideo(id,messageId,options),
       sampleSharedVideo: args=>sampleSharedVideo(session,args),
       sendMessage: (id,text,options)=>chat.sendMessage(id,text,options),
+      sendImageMessage: (id,asset,options)=>chat.sendImageMessage(id,asset,options),
       prepareChat: options=>chat.prepareChat(options),
       close:()=>session.close()
     };

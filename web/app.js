@@ -55,7 +55,22 @@ function draw(){
      }catch(e){video.checked=!enabled;note(e.message,true);}
      finally{video.disabled=false;}
    });
-   videoCell.append(video);tr.append(name,kind,id,cell,coverCell,videoCell);tbody.append(tr);
+   videoCell.append(video);
+   const stickerCell=document.createElement('td'),sticker=document.createElement('input');
+   sticker.type='checkbox';sticker.checked=c.stickerEnabled;
+   sticker.setAttribute('aria-label','允许发送表情图片 '+c.name);
+   sticker.title='允许 AstrBot 在此会话发送 PNG/JPEG/GIF/WebP 图片表情（还需全局发送开关）';
+   sticker.addEventListener('change',async()=>{
+     const enabled=sticker.checked;sticker.disabled=true;
+     try{
+       const r=await call('/api/conversations/'+encodeURIComponent(c.id)+'/sticker',
+         {method:'PUT',body:JSON.stringify({enabled})});
+       c.stickerEnabled=r.item.stickerEnabled;
+       note((c.stickerEnabled?'已允许发送表情图片：':'已禁止发送表情图片：')+c.name);
+     }catch(e){sticker.checked=!enabled;note(e.message,true);}
+     finally{sticker.disabled=false;}
+   });
+   stickerCell.append(sticker);tr.append(name,kind,id,cell,coverCell,videoCell,stickerCell);tbody.append(tr);
  }
  $('empty').hidden=items.length>0;
  $('empty').textContent=contacts.length?'没有匹配的会话':'尚未发现可核验会话，请尝试重新扫描';

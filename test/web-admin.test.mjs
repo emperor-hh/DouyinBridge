@@ -47,8 +47,15 @@ test('admin API is authenticated and can toggle group and private dynamically',a
     body:JSON.stringify({enabled:true})});
   assert.equal(r.status,200);
   assert.equal(db.videoAllowed(group.id,'group',group.identityBinding),true);
+  r=await fetch(base+'api/conversations/'+encodeURIComponent(group.id)+'/sticker',{
+    method:'PUT',headers:{...headers,'Content-Type':'application/json'},
+    body:JSON.stringify({enabled:true})});
+  assert.equal(r.status,200);
+  assert.equal(db.stickerAllowed(group.id,'group',group.identityBinding),true);
+  assert.equal(db.stickerAllowed(friend.id,'private'),false);
+  assert.equal(updates,3);
   assert.equal(db.videoAllowed(friend.id,'private'),false);
-  assert.equal(updates,2);
+  assert.equal(updates,3);
   r=await fetch(base+'api/conversations/'+encodeURIComponent(group.id)+'/video',{
     method:'PUT',headers:{...headers,'Content-Type':'application/json'},
     body:JSON.stringify({enabled:'invalid'})});

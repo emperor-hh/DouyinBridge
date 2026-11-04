@@ -57,7 +57,8 @@ export function incomingFingerprintParts(message) {
     'shared-work',media.videoId??null,media.url??null,media.title??null,
     media.author??null,media.isPhotoGallery===true,media.identityConflict===true
   ]:null;
-  return [message?.text??'',message?.kind??'',message?.memberId??'',shared];
+  const emoji=media?.type==='emoji'?['emoji',media.label??null,media.resources?.map(r=>r.resourceRef??null)??null]:null;
+  return [message?.text??'',message?.kind??'',message?.memberId??'',shared,emoji];
 }
 
 export function extractCoverFrame(captured,messageId,{maxBytes=512_000}={}){

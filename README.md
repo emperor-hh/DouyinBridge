@@ -2,6 +2,14 @@
 
 Experimental Douyin **private + group** message transport for AstrBot via OneBot v11. DouyinLuma uses an independent persistent Chromium browser and delegates all AI, persona and plugin handling to AstrBot. SnowLuma and QQ remain separate.
 
+## v0.6.0: send/receive image stickers (private + group)
+
+- **Incoming sticker/emoji cards:** Recognized Douyin `media.type='emoji'` cards now produce an OneBot text event even when no text exists; when `RECEIVE_STICKERS=true` (default), an exact-card image screenshot is attached as an image segment when upstream capture is available. Screenshots are rate-limited per conversation.
+- **Sending image stickers:** AstrBot OneBot v11 `send_private_msg` or `send_group_msg` can send one image segment containing `data.file='base64://...'`. Supported file signatures: PNG, JPEG, GIF, WebP; 12 bytes–8MB. This reuses the upstream `ChatBrowser.sendImageMessage` upload-preview/watermark/confirmed-receipt path; no blind click or automatic retry on uncertainty.
+- **Gates:** `ENABLE_SENDING=true` and `ENABLE_IMAGE_SENDING=true`, plus the specific conversation's **发送表情图片** Web UI toggle (off by default). All three must be enabled. Conversation authorization changes apply without a restart; `.env` flags require a restart.
+- **Unsupported:** Native Douyin sticker-picker IDs, remote URLs, arbitrary local file paths, text+image mixed sends, and multiple images in one OneBot action. Ordinary Unicode emoji such as 🙂 already work as text.
+- This is **browser image upload**, not native sticker-library click. Real account delivery is still unverified; start with a disposable test contact and keep sending off until tested. [docs/stickers.md](docs/stickers.md) explains formats and limitations.
+
 ## v0.5.0: opt-in real timed video playback sampling
 
 DouyinLuma can now open an explicitly authorized Douyin shared-work video in a **temporary Chromium tab**, mute/play for up to 5 seconds (default 3), collect 3 actual timestamped JPEG frames, verify time progress and visible video identity, pause/close the tab, and forward the frames to AstrBot as OneBot image segments. This is partial visual observation, not full video or audio understanding.
