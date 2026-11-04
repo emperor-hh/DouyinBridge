@@ -1,6 +1,6 @@
 {
   "name": "douyinluma",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "engines": {
@@ -10,8 +10,10 @@
     "start": "node src/index.mjs",
     "start:visible": "node src/index.mjs --visible",
     "login": "node src/index.mjs --login",
+    "contacts": "node src/index.mjs --list-contacts",
+    "contacts:visible": "node src/index.mjs --list-contacts --visible",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check src/index.mjs && node --check src/browser-session.mjs && node --check src/douyin-driver.mjs"
+    "check": "node --check src/index.mjs && node --check src/browser-session.mjs && node --check src/douyin-driver.mjs && node --check src/contact-list.mjs"
   },
   "dependencies": {
     "ws": "^8.18.3"

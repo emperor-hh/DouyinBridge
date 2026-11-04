@@ -4,15 +4,17 @@ import { configFromEnv } from './config.mjs';
 import { IdentityStore } from './identity.mjs';
 import { loadDriver } from './douyin-driver.mjs';
 import { createBrowserSession } from './browser-session.mjs';
+import { summarizeContactListing, formatContactListing } from './contact-list.mjs';
 import { OneBotClient } from './onebot.mjs';
 import { Gateway } from './gateway.mjs';
 
 const cfg=configFromEnv();
 const args=new Set(process.argv.slice(2));
 const login=args.has('--login');
+const listContacts=args.has('--list-contacts');
+if(login&&listContacts)throw Error('--login 和 --list-contacts 不能同时使用');
 const visible=args.has('--visible')||login||cfg.browserMode==='visible';
 fs.mkdirSync(cfg.data,{recursive:true});
-// Keep all upstream app state separate from any DSH or existing user's profile.
 process.env.DOUYIN_STATE_DIR=path.join(cfg.data,'upstream-state');
 process.env.DOUYIN_RUNTIME_LOCATION_FILE=path.join(cfg.data,'runtime-location.json');
 fs.mkdirSync(path.join(cfg.profileDir,'control'),{recursive:true});
@@ -34,10 +36,17 @@ try {
   if(login){
     session=await createBrowserSession(browserArgs);
     const page=await session.openLoginPage();
-    console.log('[login] Log in manually in the visible browser:',page.url());
-    console.log('[login] Press Ctrl+C when login is complete. Profile:',cfg.profileDir);
+    console.log('[login] 请在浏览器手动登录：',page.url());
+    console.log('[login] 登录完成后按 Ctrl+C 退出。浏览器资料目录：',cfg.profileDir);
     while(!stopping&&session.context.pages().some(p=>!p.isClosed()))
       await new Promise(resolve=>setTimeout(resolve,500));
+  }else if(listContacts){
+    // Discovery intentionally bypasses ALLOWED_CONVERSATIONS. It is read-only;
+    // no AstrBot/OneBot connection or message dispatch is created.
+    driver=await loadDriver(browserArgs);
+    const result=await driver.listContacts({verifyFollowing:false,backgroundOnly:false});
+    const summary=summarizeContactListing(result);
+    console.log(formatContactListing(summary));
   }else{
     driver=await loadDriver(browserArgs);
     const store=new IdentityStore(path.join(cfg.data,'identities.json'));
