@@ -1,0 +1,17 @@
+{
+  "name": "douyinluma",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node src/index.mjs",
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check src/index.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}
