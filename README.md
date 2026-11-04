@@ -1,53 +1,49 @@
 # DouyinLuma
 
-Experimental Douyin private/group message bridge for AstrBot via OneBot v11.
+Experimental Douyin private/group chat bridge for AstrBot using OneBot v11. **The AI, plugins, persona and memories belong to AstrBot; DouyinLuma only transports messages.** SnowLuma remains unchanged.
 
-> **Development prototype. Not production-ready.** This repository does **not** include verified Douyin account login or proven real-world private/group message sending. Sending is disabled by default.
+**v0.2.0 — Headless Chromium development integration (not production-ready).**
 
-## Architecture
+## Browser modes
 
-Douyin web (Windows Edge) → [LockyBee/dsh-douyin-agent ChatBrowser](https://github.com/LockyBee/dsh-douyin-agent) → DouyinLuma OneBot v11 reverse WebSocket → AstrBot (AI, memory, tools, plugins).
+| Mode | Command | Behavior |
+|---|---|---|
+| First login | `npm run login` | Always opens visible browser, scan/login manually, then Ctrl+C |
+| Default | `npm start` | Headless persistent Chromium, no browser window |
+| Debug | `npm run start:visible` | Visible persistent Chromium, same profile |
+| Config | `BROWSER_MODE=visible` | Makes default start visible |
 
-SnowLuma remains separate and unchanged. This repository has no own LLM calls. Upstream dsh-douyin-agent **source checkout** is required, but its DSH plugin/desktop executable does not need to run as a separate service.
+The persistent browser profile is `./data/browser-profile` by default. **Never run login and start concurrently against the same profile.** The application attempts to pause HTML video playback; no autonomous watching or video AI is enabled.
 
-## Implemented in this prototype
+## Setup on Windows (experimental)
 
-- OneBot v11 reverse WebSocket transport, action handling, reconnect.
-- Private/group message event conversion, conservative stable-identity checks.
-- Persistent virtual numeric IDs; allowlist, first-snapshot baseline.
-- Basic get_login_info/get_status/get_group_list/get_friend_list and text-only send actions.
-- Safety gate: `ENABLE_SENDING=false` by default; fail closed if delivery cannot be confirmed.
-- Unit tests for identity, formatting, validation and configuration.
+1. Install Node.js >=22.13, npm/pnpm and a Chromium-compatible browser (Chrome/Chromium or Edge).
+2. `git clone https://github.com/emperor-hh/DouyinLuma.git` and `cd DouyinLuma`.
+3. `npm install`.
+4. `powershell -ExecutionPolicy Bypass -File scripts/install-upstream.ps1` to fetch the pinned upstream [dsh-douyin-agent](https://github.com/LockyBee/dsh-douyin-agent) source. Its DSH plugin/executable is **not** a separate service.
+5. Copy `.env.example` → `.env`. Set the **absolute** `UPSTREAM_DIR` if the checkout is elsewhere. Configure OneBot endpoint and matching access token.
+6. `node --env-file=.env src/index.mjs --login`, manually log into Douyin, then Ctrl+C.
+7. `npm run check` and `npm test`. Use `node --env-file=.env src/index.mjs` for a development integration run (or `--visible` to debug).
 
-## Limitations and blockers
+When no `.env` file is used, `npm run login` / `npm start` use environment variables or built-in defaults. With a populated `.env`, invoke using `node --env-file=.env src/index.mjs --login`, `node --env-file=.env src/index.mjs`, or `node --env-file=.env src/index.mjs --visible`.
 
-- **Upstream browser startup/login lifecycle is not integrated.** Merely launching `src/index.mjs` does not guarantee a logged-in Douyin account.
-- Upstream DOM shapes and real group member IDs need verification on a **test account**.
-- Current polling history is in memory; restart-resistant message watermark and durable send queue are not implemented.
-- Group @ parsing must be verified before using bot-mention triggering.
-- Text only. Unsupported OneBot actions fail explicitly.
-- Windows x64 + Edge, Node.js >=22.13 (upstream restriction). Linux/Docker not supported yet.
-- Browser automation is nonofficial and may break or cause account restrictions.
+`BROWSER_CHANNEL=chromium` uses Playwright's Chromium channel; `msedge` uses installed Edge; `bundled` requires an appropriate installed Playwright browser. Set a dedicated `BROWSER_PROFILE_DIR` and never reuse your daily browser profile.
 
-## Setup (Windows development only)
+## Important limitations
 
-1. Install Node.js >=22.13, Microsoft Edge, pnpm and Git.
-2. Clone this repository; run `npm install` (or `pnpm install`).
-3. Execute `powershell -ExecutionPolicy Bypass -File scripts/install-upstream.ps1` to fetch upstream source.
-4. Copy `.env.example` to `.env`; configure `ONEBOT_WS_URL` and strong `ONEBOT_ACCESS_TOKEN`. Do not expose WS over plaintext public networks.
-5. Configure a **second** OneBot v11 reverse WS listener in AstrBot, separate from SnowLuma.
-6. Run `npm test`. Start with `node --env-file=.env src/index.mjs` as a development integration check.
+- **No real Douyin account/group integration test has been completed in this project.** Browser startup is implemented but whether headless mode preserves Douyin login, reads normal friend groups and sends messages is still unverified.
+- Current upstream `ChatBrowser` was designed for Windows Edge via a dedicated CDP controller. We inject a Browser-like compatibility wrapper for our own persistent Chromium context; browser-specific CDP operations require real testing.
+- `ENABLE_SENDING=false` by default. Leave it disabled until identity verification, queueing, receipts and group routing are validated.
+- `ALLOWED_CONVERSATIONS` is a comma-separated list of verified `conv:<sha256>` IDs, not chat display names. Empty list emits no user messages.
+- First-snapshot baseline is in memory only. Restart-resistant watermarks and outbound receipts are not implemented; don't use for unattended production.
+- OneBot v11 reverse WS connection is independent from SnowLuma. Unsupported actions reject.
+- Windows first; Linux Docker is not yet supported/validated.
+- Nonofficial browser automation can break on site changes or conflict with platform rules.
 
-**Do not enable sending** before completing the browser login/preparation and real private/group message end-to-end tests. `ALLOWED_CONVERSATIONS` accepts verified upstream `conv:<sha256>` IDs, never display names.
+## Testing
 
-## Next engineering milestones
+`npm run check` checks syntax; `npm test` runs offline unit tests using a fake Chromium launcher. Neither test logs in, accesses Douyin, nor sends real messages.
 
-1. Implement supported upstream BrowserController startup, QR login and verified contact discovery.
-2. Implement durable per-conversation watermarks and explicit group member identity checks.
-3. Add serialized outbound coordinator with optimistic-read verification and unknown-delivery receipts.
-4. Test private and ordinary friend-group text reception/sending on a disposable test account.
-5. Verify AstrBot OneBot protocol compatibility and add deployment packaging.
+## Provenance and licensing
 
-## Provenance and license
-
-Design references [LockyBee/dsh-douyin-agent](https://github.com/LockyBee/dsh-douyin-agent), MIT-licensed. See its LICENSE and THIRD_PARTY_NOTICES for any adapted code and additional third-party licenses. The upstream source is imported dynamically rather than vendored. Never commit tokens, browser profiles, login cookies or private chat logs.
+Design references [LockyBee/dsh-douyin-agent](https://github.com/LockyBee/dsh-douyin-agent) (MIT). Its code remains in a separate checkout. Respect its LICENSE, third-party notices and applicable Douyin rules. Never commit cookies, browser profiles, credentials or chat logs.

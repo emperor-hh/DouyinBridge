@@ -58,7 +58,7 @@ export class Gateway {
       case 'can_send_image':return {yes:false};
       case 'can_send_record':return {yes:false};
       case 'get_group_list':return [...this.contacts.values()].filter(c=>c.isGroup).map(c=>({group_id:this.store.id('group',c.id),group_name:c.name??c.displayName??'抖音群',member_count:0,max_member_count:0}));
-      case 'get_friend_list':return [...this.contacts.values()].filter(c=>!c.isGroup).map(c=>({user_id:this.store.id('user',c.id),nickname:c.name??c.displayName??'抖音好友',remark:''}));
+      case 'get_friend_list':return [...this.contacts.values()].filter(c=>!c.isGroup).map(c=>({user_id:this.store.id('private',c.id),nickname:c.name??c.displayName??'抖音好友',remark:''}));
       case 'send_group_msg':return this.send('group',params.group_id,params.message);
       case 'send_private_msg':return this.send('private',params.user_id,params.message);
       default:throw Object.assign(Error(`unsupported action: ${action}`),{retcode:1404});
@@ -72,13 +72,13 @@ export class Gateway {
     if(!text||[...text].length>1000)throw Object.assign(Error('text length must be 1-1000'),{retcode:1400});
     if(this.busy)throw Object.assign(Error('send queue busy, not retried'),{retcode:1409});
     this.busy=true;
-    try {
+    try{
       const snap=await this.driver.readConversation(native,{allowed:true});
       const rows=snap?.messages??[];
       const result=await this.driver.sendMessage(native,text,{allowed:true,expectedContact:contact,expectedMessageIds:rows.map(x=>x.id)});
       if(result?.confirmed!==true)throw Object.assign(Error(result?.deliveryUncertain?'delivery uncertain; do not retry automatically':'delivery not confirmed'),{retcode:result?.deliveryUncertain?1502:1501});
       const external=result.messageId??`confirmed:${Date.now()}:${native}`;
       return {message_id:this.store.id('sent-message',String(external))};
-    } finally {this.busy=false;}
+    }finally{this.busy=false;}
   }
 }

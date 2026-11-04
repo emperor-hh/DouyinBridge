@@ -1,19 +1,52 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import {configFromEnv} from './config.mjs';
-import {IdentityStore} from './identity.mjs';
-import {loadDriver} from './douyin-driver.mjs';
-import {OneBotClient} from './onebot.mjs';
-import {Gateway} from './gateway.mjs';
-const config=configFromEnv();
-fs.mkdirSync(config.data,{recursive:true});
-const store=new IdentityStore(path.join(config.data,'identities.json'));
-const driver=await loadDriver(config.upstream);
-let gateway;
-const client=new OneBotClient({url:config.url,token:config.token,selfId:990000001,actions:(a,p)=>gateway.actions(a,p),onState:s=>console.log('[onebot]',s)});
-gateway=new Gateway({driver,store,client,config});
-console.log('DouyinLuma started; allowlisted conversations:',config.allowlist.size,'send enabled:',config.enableSending);
-client.connect();
-const stop=()=>{gateway.running=false;client.close();};
-process.on('SIGINT',stop);process.on('SIGTERM',stop);
-await gateway.loop();
+import { configFromEnv } from './config.mjs';
+import { IdentityStore } from './identity.mjs';
+import { loadDriver } from './douyin-driver.mjs';
+import { createBrowserSession } from './browser-session.mjs';
+import { OneBotClient } from './onebot.mjs';
+import { Gateway } from './gateway.mjs';
+
+const cfg=configFromEnv();
+const args=new Set(process.argv.slice(2));
+const login=args.has('--login');
+const visible=args.has('--visible')||login||cfg.browserMode==='visible';
+fs.mkdirSync(cfg.data,{recursive:true});
+// Keep all upstream app state separate from any DSH or existing user's profile.
+process.env.DOUYIN_STATE_DIR=path.join(cfg.data,'upstream-state');
+process.env.DOUYIN_RUNTIME_LOCATION_FILE=path.join(cfg.data,'runtime-location.json');
+fs.mkdirSync(path.join(cfg.profileDir,'control'),{recursive:true});
+const browserArgs={upstreamDir:cfg.upstream,profileDir:cfg.profileDir,
+  headless:!visible,browserChannel:cfg.browserChannel};
+let session,driver,client,gateway;
+let stopping=false;
+async function stop(){
+  if(stopping)return;
+  stopping=true;
+  if(gateway)gateway.running=false;
+  client?.close();
+  const pending=driver?.close?.()??session?.close?.();
+  if(pending)await pending.catch(e=>console.error('[browser close]',e.message));
+}
+process.on('SIGINT',()=>{void stop();});
+process.on('SIGTERM',()=>{void stop();});
+try {
+  if(login){
+    session=await createBrowserSession(browserArgs);
+    const page=await session.openLoginPage();
+    console.log('[login] Log in manually in the visible browser:',page.url());
+    console.log('[login] Press Ctrl+C when login is complete. Profile:',cfg.profileDir);
+    while(!stopping&&session.context.pages().some(p=>!p.isClosed()))
+      await new Promise(resolve=>setTimeout(resolve,500));
+  }else{
+    driver=await loadDriver(browserArgs);
+    const store=new IdentityStore(path.join(cfg.data,'identities.json'));
+    client=new OneBotClient({url:cfg.url,token:cfg.token,selfId:990000001,
+      actions:(a,p)=>gateway.actions(a,p),onState:s=>console.log('[onebot]',s)});
+    gateway=new Gateway({driver,store,client,config:cfg});
+    console.log('[browser]',visible?'visible':'headless',cfg.browserChannel,'profile:',cfg.profileDir);
+    console.log('[gateway] allowlisted:',cfg.allowlist.size,'sending:',cfg.enableSending);
+    client.connect();
+    await gateway.loop();
+  }
+}finally{await stop();}
