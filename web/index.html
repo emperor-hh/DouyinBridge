@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DouyinLuma 控制台</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Microsoft YaHei",sans-serif;color:#202a38;background:#f5f7fb}
+body{margin:0}main{max-width:1000px;margin:30px auto;padding:0 20px}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+h1{margin:0;font-size:26px}.muted{color:#697586;font-size:13px}
+.panel{background:white;border:1px solid #e2e7ed;border-radius:14px;margin:16px 0;padding:20px}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}button{background:#2759b2;color:white;border:0;border-radius:8px;padding:10px 15px;cursor:pointer}button:disabled{opacity:.5}
+input[type=password],input[type=search]{padding:10px;border:1px solid #ccd5e1;border-radius:8px;max-width:100%;box-sizing:border-box}
+input[type=search]{flex:1;min-width:180px}
+table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:12px 8px;border-bottom:1px solid #edf0f4;font-size:14px}code{font-size:11px;overflow-wrap:anywhere}
+.tag{display:inline-block;background:#eaf0fb;padding:4px 8px;border-radius:6px}
+.small{font-size:12px}.notice{min-height:20px;margin-top:12px}
+@media(max-width:620px){th:nth-child(3),td:nth-child(3){display:none}}
+</style></head>
+<body><main>
+<header><div><h1>DouyinLuma</h1><p class="muted">私聊与群聊 · 动态授权 · 仅本机访问</p></div><span id="status" class="tag">等待连接</span></header>
+<section class="panel"><h2>管理授权</h2><p class="muted">启动程序后，从终端复制管理令牌。令牌只保存在当前浏览器标签的会话存储中。</p>
+<div class="row"><input id="token" type="password" size="44" autocomplete="off" placeholder="输入管理令牌">
+<button id="connect">连接</button><button id="refresh" disabled>重新扫描抖音会话</button></div><div id="notice" class="notice" role="status"></div>
+</section>
+<section class="panel"><div class="row"><h2>会话授权</h2><input type="search" id="search" placeholder="搜索好友或群名">
+<select id="filter"><option value="all">全部</option><option value="private">私聊</option><option value="group">群聊</option></select></div>
+<p class="muted">关闭白名单会立即停止该会话后续消息上报，并在发送前再次核验。授权只适用于已验证身份的会话，不会自动批准新好友或群。</p>
+<div style="overflow:auto"><table><thead><tr><th>会话名称</th><th>类型</th><th>会话 ID</th><th>允许 AstrBot 处理</th></tr></thead><tbody id="rows"></tbody></table></div>
+<p id="empty" class="muted">未加载会话</p></section>
+</main><script src="/app.js"></script></body></html>
