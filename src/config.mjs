@@ -18,6 +18,7 @@ export function configFromEnv(env=process.env){
     browserMode,browserChannel,pollMs,adminPort,adminToken:env.ADMIN_TOKEN??'',
     // Migrates legacy IDs once into SQLite; no longer the source of truth.
     allowlist:new Set((env.ALLOWED_CONVERSATIONS??'').split(',').map(x=>x.trim()).filter(Boolean)),
-    enableSending:env.ENABLE_SENDING==='true',groupTrigger:env.GROUP_TRIGGER??'all'
+    enableSending:env.ENABLE_SENDING==='true',groupTrigger:env.GROUP_TRIGGER??'all',
+    shareForwarding:env.SHARED_VIDEO_FORWARDING!=='false'
   };
 }

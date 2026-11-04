@@ -2,6 +2,12 @@
 
 Experimental Douyin **private + group** message transport for AstrBot via OneBot v11. DouyinLuma uses an independent persistent Chromium browser and delegates all AI, persona and plugin handling to AstrBot. SnowLuma and QQ remain separate.
 
+## v0.4.0: shared video/photo card forwarding (private + group)
+
+Authorized Douyin shared-work cards can now reach AstrBot as OneBot text messages, even if the card contains **no text**. They contain visible card title, author, and a strictly validated Douyin work link when available. This is **not** video understanding. The gateway does not autonomously open or play shared videos. `SHARED_VIDEO_FORWARDING=true` by default; set false to disable.
+
+The management console has an independent **视频卡片封面** toggle for each private chat/group (off by default). When enabled, a newly received private-chat card or an explicitly @-mentioned group-chat card may include one JPEG screenshot of the card as an OneBot `base64://` image segment. AstrBot image parsing and upstream screenshots still require real-world validation. See [docs/shared-video.md](docs/shared-video.md).
+
 ## v0.3.0: Web management console + dynamic authorization
 
 - **Default:** Headless Chromium (`node --env-file=.env src/index.mjs`).

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { messageEvent, textSegments } from './onebot-format.mjs';
 import { validatedContact } from './douyin-driver.mjs';
+import { formatIncomingMessage, incomingFingerprintParts, extractCoverFrame, sharedWorkDetails } from './shared-work.mjs';
 
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const digest=x=>createHash('sha256').update(String(x)).digest('hex');
@@ -55,6 +56,22 @@ export class Gateway {
     catch(e){this.lastScanError=e.message;this.nextScanAt=Date.now()+10_000;throw e;}
     finally{this.scanPromise=null;}
   }
+  async captureCoverIfAllowed(c,message){
+    if(!sharedWorkDetails(message)||typeof this.driver.captureMessage!=='function')return null;
+    if(c.isGroup&&message.mentionedSelf!==true)return null;
+    if(!this.isAllowed(c)||!this.allowlist.coverAllowed?.(c.id,c.isGroup?'group':'private',c.identityBinding))return null;
+    const nativeId=message.id;
+    if(typeof nativeId!=='string'||!/^msg:[a-f0-9]{64}$/.test(nativeId))return null;
+    try{
+      const captured=await this.driver.captureMessage(c.id,nativeId,{allowed:true});
+      // A whitelist or cover permission may have been revoked during screenshot.
+      if(!this.isAllowed(c)||!this.allowlist.coverAllowed?.(c.id,c.isGroup?'group':'private',c.identityBinding))return null;
+      return extractCoverFrame(captured,nativeId);
+    }catch(error){
+      this.logger.warn?.('[video-cover]',error?.message??String(error));
+      return null;
+    }
+  }
   async pollOnce(){
     await this.refresh();
     // Snapshot allowed contacts; check authorization again after awaits.
@@ -66,22 +83,25 @@ export class Gateway {
       const rows=snap?.messages??snap?.snapshot?.messages;
       if(!Array.isArray(rows))continue;
       const incoming=rows.filter(m=>m?.id&&m.sender==='incoming').map(m=>({
-        m,k:`${c.id}:${m.id}:${digest(JSON.stringify([m.text??'',m.kind??'',m.memberId??'']))}`
+        m,k:`${c.id}:${m.id}:${digest(JSON.stringify(incomingFingerprintParts(m)))}`
       }));
       const previous=this.baselines.get(c.id),current=new Set(incoming.map(x=>x.k));
       if(previous){
         for(const {m,k} of incoming){
           if(!this.isAllowed(c))break;
-          if(previous.has(k)||!m.latestEndVerified||!m.id||typeof m.text!=='string'||!m.text.trim())continue;
+          if(previous.has(k)||!m.latestEndVerified||!m.id)continue;
+          const content=formatIncomingMessage(m,{includeSharedWork:this.config.shareForwarding!==false});
+          if(!content)continue;
           if(c.isGroup&&!/^member:[a-f0-9]{64}$/.test(m.memberId??''))continue;
           const senderKey=c.isGroup?m.memberId:c.id;
           const senderId=this.store.id(c.isGroup?'user':'private',senderKey);
           const conversationId=this.store.id(c.isGroup?'group':'private',c.id);
           const msgId=this.store.id('message',k);
+          const coverBase64=this.config.shareForwarding===false?null:await this.captureCoverIfAllowed(c,m);
           if(!this.isAllowed(c))break;
           this.client.event(messageEvent({selfId:this.selfId,messageId:msgId,conversationId,
             senderId,senderName:typeof m.member==='string'?m.member:typeof m.memberName==='string'?m.memberName:c.name,
-            group:c.isGroup,content:m.text,mentionedSelf:m.mentionedSelf===true}));
+            group:c.isGroup,content,mentionedSelf:m.mentionedSelf===true,imageBase64:coverBase64}));
         }
       }
       if(this.isAllowed(c))this.baselines.set(c.id,current);

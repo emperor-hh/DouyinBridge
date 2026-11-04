@@ -21,6 +21,7 @@ export async function loadDriver({upstreamDir,profileDir,headless=true,browserCh
       session, chat,
       listContacts: options=>chat.listContacts(options),
       readConversation: (id,options)=>chat.readConversation(id,options),
+      captureMessage: (id,messageId,options)=>chat.captureMessage(id,messageId,options),
       sendMessage: (id,text,options)=>chat.sendMessage(id,text,options),
       prepareChat: options=>chat.prepareChat(options),
       close:()=>session.close()

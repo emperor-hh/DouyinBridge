@@ -26,7 +26,21 @@ function draw(){
        const r=await call('/api/conversations/'+encodeURIComponent(c.id),{method:'PUT',body:JSON.stringify({enabled})});
        c.enabled=r.item.enabled;note((c.enabled?'已授权：':'已取消授权：')+c.name);
      }catch(e){check.checked=!enabled;note(e.message,true);}finally{check.disabled=false;}
-   });cell.append(check);tr.append(name,kind,id,cell);tbody.append(tr);
+   });cell.append(check);
+   const coverCell=document.createElement('td');const cover=document.createElement('input');
+   cover.type='checkbox';cover.checked=c.coverEnabled;cover.setAttribute('aria-label','截取封面 '+c.name);
+   cover.title='仅截取分享卡片封面，无音视频播放；群聊需要 @机器人';
+   cover.addEventListener('change',async()=>{
+     const enabled=cover.checked;cover.disabled=true;
+     try{
+       const r=await call('/api/conversations/'+encodeURIComponent(c.id)+'/cover',
+         {method:'PUT',body:JSON.stringify({enabled})});
+       c.coverEnabled=r.item.coverEnabled;
+       note((c.coverEnabled?'已允许封面预览：':'已关闭封面预览：')+c.name);
+     }catch(e){cover.checked=!enabled;note(e.message,true);}
+     finally{cover.disabled=false;}
+   });
+   coverCell.append(cover);tr.append(name,kind,id,cell,coverCell);tbody.append(tr);
  }
  $('empty').hidden=items.length>0;
  $('empty').textContent=contacts.length?'没有匹配的会话':'尚未发现可核验会话，请尝试重新扫描';

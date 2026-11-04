@@ -24,7 +24,7 @@ table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:12px 8px
 </section>
 <section class="panel"><div class="row"><h2>会话授权</h2><input type="search" id="search" placeholder="搜索好友或群名">
 <select id="filter"><option value="all">全部</option><option value="private">私聊</option><option value="group">群聊</option></select></div>
-<p class="muted">关闭白名单会立即停止该会话后续消息上报，并在发送前再次核验。授权只适用于已验证身份的会话，不会自动批准新好友或群。</p>
-<div style="overflow:auto"><table><thead><tr><th>会话名称</th><th>类型</th><th>会话 ID</th><th>允许 AstrBot 处理</th></tr></thead><tbody id="rows"></tbody></table></div>
+<p class="muted">关闭白名单会停止该会话后续消息上报，并在发送前再次核验。视频分享默认只传递标题/作者/可信链接，不会播放。可单独开启封面预览：私聊会截取卡片封面，群聊仅在 @机器人 时截取；要求 AstrBot 有图片理解能力。封面不是视频全片。</p>
+<div style="overflow:auto"><table><thead><tr><th>会话名称</th><th>类型</th><th>会话 ID</th><th>允许 AstrBot 处理</th><th>视频卡片封面</th></tr></thead><tbody id="rows"></tbody></table></div>
 <p id="empty" class="muted">未加载会话</p></section>
 </main><script src="/app.js"></script></body></html>

@@ -34,5 +34,17 @@ test('admin API is authenticated and can toggle group and private dynamically',a
   assert.equal(db.allowed(group.id,'group'),true);
   assert.equal(db.allowed(friend.id,'private'),false);
   assert.equal(updates,1);
+  assert.equal(db.list().find(x=>x.id===group.id).coverEnabled,false);
+  r=await fetch(base+'api/conversations/'+encodeURIComponent(group.id)+'/cover',{
+    method:'PUT',headers:{...headers,'Content-Type':'application/json'},
+    body:JSON.stringify({enabled:true})});
+  assert.equal(r.status,200);
+  assert.equal(db.coverAllowed(group.id,'group',group.identityBinding),true);
+  assert.equal(db.coverAllowed(friend.id,'private',friend.identityBinding),false);
+  assert.equal(updates,1); // cover setting must not replay old messages
+  r=await fetch(base+'api/conversations/'+encodeURIComponent(group.id)+'/cover',{
+    method:'PUT',headers:{...headers,'Content-Type':'application/json'},
+    body:JSON.stringify({enabled:'yes'})});
+  assert.equal(r.status,400);
  }finally{await app.close();db.close();fs.rmSync(dir,{recursive:true,force:true});}
 });

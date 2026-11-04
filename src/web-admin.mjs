@@ -58,12 +58,13 @@ export async function startAdmin({gateway,store,host='127.0.0.1',port=3219,token
         return json(res,200,{count:result.count,scannedToEnd:result.scannedToEnd,notes:result.notes??null,items:store.list()});
       }
       if(req.method==='PUT'&&url.pathname.startsWith('/api/conversations/')){
-        const id=decodeURIComponent(url.pathname.slice('/api/conversations/'.length));
+        const isCover=url.pathname.endsWith('/cover');
+        const id=decodeURIComponent(url.pathname.slice('/api/conversations/'.length,isCover? -'/cover'.length:undefined));
         const body=await readJson(req);
         if(!body||typeof body.enabled!=='boolean'||Object.keys(body).some(x=>x!=='enabled'))
           return json(res,400,{error:'expected {enabled: boolean}'});
-        const updated=store.setEnabled(id,body.enabled);
-        gateway.authorizationChanged(id);
+        const updated=isCover?store.setCoverEnabled(id,body.enabled):store.setEnabled(id,body.enabled);
+        if(!isCover)gateway.authorizationChanged(id);
         return json(res,200,{item:updated});
       }
       return json(res,404,{error:'not found'});

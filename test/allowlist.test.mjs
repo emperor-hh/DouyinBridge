@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';import path from 'node:path';import os from 'node:os';
 import {AllowlistStore} from '../src/allowlist-store.mjs';
+import {DatabaseSync} from 'node:sqlite';
 import {Gateway} from '../src/gateway.mjs';
 
 const conv=l=>'conv:'+l.repeat(64);
@@ -99,4 +100,27 @@ test('group messages use group ID and verified member ID only',async()=>{
   assert.equal(emitted.length,1);assert.equal(emitted[0].message_type,'group');
   assert.equal(emitted[0].group_id,123);assert.equal(emitted[0].user_id,45);
  }finally{f.close();}
+});
+
+test('pre-v0.4 SQLite schemas migrate without changing existing approvals',()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'douyinluma-old-db-'));
+ const filename=path.join(dir,'state.sqlite');
+ const a=contact(conv('d'),true,'旧群聊');
+ try{
+   const db=new DatabaseSync(filename);
+   db.exec(`CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
+     CREATE TABLE conversations(
+       id TEXT PRIMARY KEY,kind TEXT NOT NULL,name TEXT NOT NULL,
+       identity_binding TEXT NOT NULL,identity_kind TEXT NOT NULL,
+       enabled INTEGER NOT NULL DEFAULT 0,updated_at TEXT NOT NULL);`);
+   db.prepare('INSERT INTO conversations(id,kind,name,identity_binding,identity_kind,enabled,updated_at) VALUES(?,?,?,?,?,?,?)')
+     .run(a.id,'group',a.name,a.identityBinding,a.identityKind,1,new Date().toISOString());
+   db.close();
+   const reopened=new AllowlistStore(filename);
+   assert.equal(reopened.allowed(a.id,'group'),true);
+   assert.equal(reopened.coverAllowed(a.id,'group'),false);
+   reopened.setCoverEnabled(a.id,true);
+   assert.equal(reopened.coverAllowed(a.id,'group'),true);
+   reopened.close();
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
