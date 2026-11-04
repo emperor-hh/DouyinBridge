@@ -6,7 +6,7 @@ export class OneBotClient {
   }
   connect(){
     if(this.closed)return;
-    const headers=this.token?{Authorization:`Bearer ${this.token}`}:{};
+    const headers={'X-Self-ID':String(this.selfId),'X-Client-Role':'Universal',...(this.token?{Authorization:`Bearer ${this.token}`}:{})};
     const ws=new WebSocket(this.url,{headers});this.ws=ws;
     ws.on('open',()=>{
       this.retry=1000;this.onState?.('connected');

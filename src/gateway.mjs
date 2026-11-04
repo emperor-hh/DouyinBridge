@@ -128,8 +128,11 @@ export class Gateway {
       // We check authorization immediately before dispatch. An in-progress UI
       // click cannot be retracted after it reaches the platform.
       if(!this.isAllowed(c))throw disabled();
+      const expectedContact={...c,
+        authorizationKind:c.isGroup?'existing-group':c.followed===true?'following':'existing-conversation',
+        verifiedAt:new Date().toISOString()};
       const result=await this.driver.sendMessage(native,text,{
-        allowed:true,expectedContact:c,expectedMessageIds:rows.map(x=>x.id)
+        allowed:true,expectedContact,expectedMessageIds:rows.map(x=>x.id)
       });
       if(result?.confirmed!==true)throw Object.assign(
         Error(result?.deliveryUncertain?'delivery uncertain, do not retry':'delivery not confirmed'),
