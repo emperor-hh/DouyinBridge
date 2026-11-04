@@ -53,7 +53,7 @@ function stub({otherUrl=false,cors=false,multiple=false}={}){
  const locator={first:()=>({waitFor:async()=>{},elementHandle:async()=>handle}),
    count:async()=>multiple?2:1};
  const page={goto:async target=>{url=otherUrl?'https://elsewhere.example/video/123456':target;},
-   url:()=>url,locator:selector=>{assert.equal(selector,'video:visible');return locator;},
+   url:()=>url,locator:selector=>{assert.equal(selector,'[data-e2e="player-container"].video_123456 video:visible');return locator;},
    evaluate:async fn=>{
      const source=String(fn);
      if(source.includes('__douyinlumaSamplingAuthorized=true'))allow=true;
@@ -92,5 +92,15 @@ test('foreign pages and ambiguous players never trigger playback',async()=>{
    await assert.rejects(()=>sampleVideoPage(f.page,
      {videoId:'123456',url:'https://www.douyin.com/video/123456',seconds:1},{wait:f.delay}));
    assert.equal(f.status().muted,false);
+ }
+});
+
+test('natural explicit watch requests trigger sampling but statements do not',()=>{
+ const a=card(msg('a'),member('1'));
+ for(const text of ['@科诺 看这个视频','@科诺 看视频','请看这条视频','帮我看这个视频','看一下这个视频']){
+  assert.ok(selectRequestedVideo([a,{...request(msg('b'),member('1')),text}],1,{group:true}),text);
+ }
+ for(const text of ['我在看这个视频','别看这个视频','这个视频很好看']){
+  assert.equal(selectRequestedVideo([a,{...request(msg('b'),member('1')),text}],1,{group:true}),null,text);
  }
 });

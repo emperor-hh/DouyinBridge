@@ -1,5 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {randomBytes} from 'node:crypto';
 import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
 import {parseOutgoingMessage,decodeImageSegment,stickerLabel,extractStickerFrame} from '../src/sticker.mjs';
 import {incomingFingerprintParts} from '../src/shared-work.mjs';
@@ -127,4 +128,16 @@ test('inbound emoji cards still reach AstrBot when no text is present',async()=>
   assert.match(forwarded[0].raw_message,/抖音表情包/);
   assert.deepEqual(forwarded[0].message.map(x=>x.type),['text','image']);
  }finally{f.close();}
+});
+
+test('multi-megabyte GIF and large incoming frames do not overflow validation',()=>{
+ const bytes=randomBytes(4*1024*1024);Buffer.from('GIF89a').copy(bytes);
+ const data=bytes.toString('base64');
+ assert.deepEqual(decodeImageSegment({type:'image',data:{file:'base64://'+data}}).bytes,bytes);
+ for(const malformed of [data+'=',data.slice(1),data.slice(0,-1)+'!',data.slice(0,8)+'='+data.slice(9)]){
+  assert.throws(()=>decodeImageSegment({type:'image',data:{file:'base64://'+malformed}}),/格式|大小|规范/);
+ }
+ const largeJpeg=Buffer.alloc(400000);jpeg.copy(largeJpeg);
+ const frame={messageId:msg('a'),media:{type:'emoji'},frames:[{mimeType:'image/jpeg',data:largeJpeg.toString('base64')}]};
+ assert.equal(extractStickerFrame(frame,msg('a')),frame.frames[0].data);
 });

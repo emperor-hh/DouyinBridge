@@ -81,9 +81,11 @@ export async function sampleVideoPage(page,args,{wait=delay}={}){
   args.signal?.throwIfAborted();
   await page.goto(url,{waitUntil:'domcontentloaded',timeout:20000});
   assertUrl(page,videoId);
-  const videos=page.locator('video:visible');
+  // Douyin mounts recommendation/preload players during navigation. Bind the
+  // player to the requested work instead of counting all videos on the page.
+  const videos=page.locator(`[data-e2e="player-container"].video_${videoId} video:visible`);
   await videos.first().waitFor({state:'visible',timeout:15000});
-  if(await videos.count()!==1)throw reject('多个播放器同时可见，不允许猜测作品');
+  if(await videos.count()!==1)throw reject('目标作品没有唯一的可见播放器');
   const handle=await videos.first().elementHandle();
   if(!handle)throw reject('视频元素不存在');
   let started=false;

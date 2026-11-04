@@ -14,6 +14,7 @@ export class Gateway {
   constructor({driver,store,client,config,allowlist,selfId=990000001,logger=console}){
     Object.assign(this,{driver,store,client,config,allowlist,selfId,logger});
     this.baselines=new Map();this.contacts=new Map();
+    this.sendTail=Promise.resolve();this.pendingSends=0;this.sendEpoch=new Map();
     this.running=false;this.busy=false;this.scanPromise=null;this.lastScan=null;this.lastScanError=null;
     this.nextScanAt=0;this.scanIntervalMs=60_000;this.videoAbort=new Map();this.lastStickerCapture=new Map();
   }
@@ -85,11 +86,13 @@ export class Gateway {
     const selection=selectRequestedVideo(rows,rows.findIndex(m=>m.id===request.id),{group:c.isGroup});
     if(!selection)return null;
     const {card,work}=selection;
+    this.logger.info?.('[video-sampling] explicit request selected',c.isGroup?'group':'private',request.id);
     const unavailable=()=>({summary:'[未提供视频采样画面] 当前权限、配额或视频页面无法满足采样要求；不能仅凭链接推测视频内容。',frames:[]});
     if(!this.videoAllowed(c)||typeof this.driver.sampleSharedVideo!=='function'||this.videoAbort.has(c.id))
       return unavailable();
     const sampleKey='sample:'+digest([c.id,request.id,card.id].join('|'));
-    if(!this.allowlist.reserveVideoSample(c.id,sampleKey).ok)return unavailable();
+    const reservation=this.allowlist.reserveVideoSample(c.id,sampleKey);
+    if(!reservation.ok){this.logger.warn?.('[video-sampling] quota rejected',reservation.reason??'quota/cooldown');return unavailable();}
     const abort=new AbortController(),signal=AbortSignal.any([abort.signal,AbortSignal.timeout(45_000)]);
     this.videoAbort.set(c.id,abort);
     const fingerprint=m=>digest(JSON.stringify(incomingFingerprintParts(m)));
@@ -118,6 +121,7 @@ export class Gateway {
         fingerprint(laterCard)!==cardFingerprint)throw Error('采样期间会话消息已变化');
       if(observation?.videoId!==videoId||observation.url!==url)throw Error('作品 ID 与采样结果不匹配');
       const summary=formatSampleEvidence(observation);
+      this.logger.info?.('[video-sampling] captured frames:',observation.frames.length,'work:',videoId);
       return {summary,frames:observation.frames.map(frame=>frame.data)};
     }catch(error){
       if(!this.videoAllowed(c)||signal.aborted)return null;
@@ -216,6 +220,26 @@ export class Gateway {
     }
   }
   async send(kind,id,message){
+    if(this.pendingSends>=16)
+      throw Object.assign(Error('send queue full; do not automatically retry'),{retcode:1409});
+    const key=`${kind}:${id}`,epoch=this.sendEpoch.get(key)??0;
+    const queuedAt=Date.now(),snapshot=structuredClone(message);
+    this.pendingSends++;
+    const operation=this.sendTail.then(async()=>{
+      if(Date.now()-queuedAt>120000)
+        throw Object.assign(Error('queued send expired; not dispatched'),{retcode:1409});
+      if((this.sendEpoch.get(key)??0)!==epoch)
+        throw Object.assign(Error('previous delivery uncertain; queued reply not dispatched'),{retcode:1502});
+      try{return await this.sendNow(kind,id,snapshot);}
+      catch(error){
+        if(error.retcode===1502)this.sendEpoch.set(key,epoch+1);
+        throw error;
+      }
+    });
+    this.sendTail=operation.catch(()=>{});
+    try{return await operation;}finally{this.pendingSends--;}
+  }
+  async sendNow(kind,id,message){
     if(!this.config.enableSending)throw Object.assign(Error('sending disabled by ENABLE_SENDING'),{retcode:1403});
     const native=this.store.lookup(kind,id),c=native?this.contacts.get(native):null;
     if(!c||Boolean(c.isGroup)!==(kind==='group')||!this.isAllowed(c))throw disabled();
@@ -230,7 +254,6 @@ export class Gateway {
     const text=outgoing.type==='text'?outgoing.text.trim():'';
     if(outgoing.type==='text'&&(!text||[...text].length>1000))
       throw Object.assign(Error('text length must be 1-1000'),{retcode:1400});
-    if(this.busy)throw Object.assign(Error('send queue busy; do not automatically retry'),{retcode:1409});
     this.busy=true;
     try{
       const snap=await this.driver.readConversation(native,{allowed:true});
@@ -265,7 +288,7 @@ export class Gateway {
         });
       }
       if(result?.confirmed!==true)throw Object.assign(
-        Error(result?.deliveryUncertain?'delivery uncertain, do not retry':'delivery not confirmed'),
+        Error(result?.deliveryUncertain?'delivery uncertain, do not retry':'delivery not confirmed: '+(result?.failureCode??result?.reason??'no receipt')),
         {retcode:result?.deliveryUncertain?1502:1501});
       return {message_id:this.store.id('sent-message',String(result.messageId??`confirmed:${Date.now()}:${native}`))};
     }finally{this.busy=false;}

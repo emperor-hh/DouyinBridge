@@ -18,6 +18,27 @@ export async function createBrowserSession({ profileDir, upstreamDir, headless =
   try {
     // Video playback is not part of a text-message gateway. Do not override
     // browser detection signals or the user's verification flow.
+    // New Douyin chat cards use BulletBulletVideo classes. Supply only DOM
+    // aliases; upstream still verifies the message-bound work ID and links.
+    await context.addInitScript(() => {
+      const aliases=[
+        ['BulletBulletVideocontainer','MessageItemShareAwemecontainer'],
+        ['BulletBulletVideoauthorName','MessageItemShareAwemeauthorName'],
+        ['BulletBulletVideoawemeContainer','MessageItemShareAwemeawemeContainer'],
+        ['BulletBulletVideoauthorAvatar','MessageItemShareAwemeauthorAvatar']
+      ];
+      const normalize=root=>{
+        if(!root.querySelectorAll)return;
+        for(const [source,target] of aliases){
+          const nodes=[...(root.matches?.('.'+source)?[root]:[]),...root.querySelectorAll('.'+source)];
+          for(const node of nodes)node.classList.add(target);
+        }
+      };
+      normalize(document);
+      new MutationObserver(records=>{
+        for(const record of records)for(const node of record.addedNodes)normalize(node);
+      }).observe(document,{childList:true,subtree:true});
+    });
     await context.addInitScript(() => {
       document.addEventListener('play',event=>{
         if(event.target instanceof HTMLVideoElement) {

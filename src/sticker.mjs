@@ -26,7 +26,7 @@ export function decodeImageSegment(segment){
     throw invalid('发送表情包目前仅支持 base64:// 图片；不读取本地路径或远程 URL');
   const data=raw.slice(9);
   if(data.length<16||data.length>Math.ceil(MAX_BYTES*4/3)+4||
-     !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(data))
+     (data.length%4!==0||!/^[A-Za-z0-9+/]*={0,2}$/.test(data)))
     throw invalid('图片的 base64 数据格式或大小无效');
   const bytes=Buffer.from(data,'base64');
   const kind=imageType(bytes);
@@ -64,10 +64,10 @@ export function extractStickerFrame(captured,messageId,{maxBytes=512000}={}){
   const frame=captured.frames[0];
   if(!['image/jpeg','image/png'].includes(frame?.mimeType)||typeof frame.data!=='string'||
     frame.data.length<16||frame.data.length>Math.ceil(maxBytes*4/3)+4||
-    !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(frame.data))
+    (frame.data.length%4!==0||!/^[A-Za-z0-9+/]*={0,2}$/.test(frame.data)))
     return null;
   const bytes=Buffer.from(frame.data,'base64');
-  if(bytes.length<12||bytes.length>maxBytes)return null;
+  if(bytes.length<12||bytes.length>maxBytes||bytes.toString('base64')!==frame.data)return null;
   try{const type=imageType(bytes);if(type.mimeType!==frame.mimeType)return null;}catch{return null;}
   return frame.data;
 }

@@ -3,6 +3,7 @@
 import {sharedWorkDetails} from './shared-work.mjs';
 
 const REQUEST=/(?:分析|总结|解读|讲解|点评|评价|看看|看一下|说说|帮我看|给我看).{0,14}(?:视频|作品|这条|这个)|(?:视频|作品).{0,14}(?:分析|总结|解读|讲解|点评|评价|看看)/u;
+const SIMPLE_REQUEST=/(?:^|[\s，。！？])(?:请|帮我|给我|麻烦)?看(?:下|一下)?(?:一下)?(?:我发的|刚发的|刚才的|这个|这条|这段|下这个|一下这个|这)?(?:视频|作品)/u;
 const MESSAGE_ID=/^msg:[a-f0-9]{64}$/;
 const MEMBER_ID=/^member:[a-f0-9]{64}$/;
 
@@ -12,7 +13,7 @@ export function selectRequestedVideo(messages,requestIndex,{group=false,lookback
   const request=messages[requestIndex];
   if(!request||request.sender!=='incoming'||request.unsupported===true||
      request.nonReplyableNotice===true||!MESSAGE_ID.test(request.id??'')||
-     typeof request.text!=='string'||!REQUEST.test(request.text))return null;
+     typeof request.text!=='string'||!(REQUEST.test(request.text)||SIMPLE_REQUEST.test(request.text)))return null;
   if(group&&(request.mentionedSelf!==true||!MEMBER_ID.test(request.memberId??'')))return null;
   for(let i=requestIndex;i>=Math.max(0,requestIndex-lookback);i--){
     const candidate=messages[i];
