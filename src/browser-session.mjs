@@ -21,7 +21,11 @@ export async function createBrowserSession({ profileDir, upstreamDir, headless =
     await context.addInitScript(() => {
       document.addEventListener('play',event=>{
         if(event.target instanceof HTMLVideoElement) {
-          try { HTMLMediaElement.prototype.pause.call(event.target); } catch {}
+          try{
+            if(window.__douyinlumaSamplingAuthorized===true){
+              event.target.muted=true;event.target.volume=0;
+            }else HTMLMediaElement.prototype.pause.call(event.target);
+          }catch{}
         }
       },true);
     });

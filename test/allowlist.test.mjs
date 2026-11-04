@@ -119,6 +119,9 @@ test('pre-v0.4 SQLite schemas migrate without changing existing approvals',()=>{
    const reopened=new AllowlistStore(filename);
    assert.equal(reopened.allowed(a.id,'group'),true);
    assert.equal(reopened.coverAllowed(a.id,'group'),false);
+   assert.equal(reopened.videoAllowed(a.id,'group'),false);
+   reopened.setVideoEnabled(a.id,true);
+   assert.equal(reopened.videoAllowed(a.id,'group',a.identityBinding),true);
    reopened.setCoverEnabled(a.id,true);
    assert.equal(reopened.coverAllowed(a.id,'group'),true);
    reopened.close();

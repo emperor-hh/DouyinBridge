@@ -1,6 +1,7 @@
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { createBrowserSession } from './browser-session.mjs';
+import { sampleSharedVideo } from './video-sampler.mjs';
 
 export async function loadDriver({upstreamDir,profileDir,headless=true,browserChannel='chromium',chromiumImpl} = {}) {
   const url=pathToFileURL(path.join(upstreamDir,'chat-browser.mjs')).href;
@@ -22,6 +23,8 @@ export async function loadDriver({upstreamDir,profileDir,headless=true,browserCh
       listContacts: options=>chat.listContacts(options),
       readConversation: (id,options)=>chat.readConversation(id,options),
       captureMessage: (id,messageId,options)=>chat.captureMessage(id,messageId,options),
+      openSharedVideo: (id,messageId,options)=>chat.openSharedVideo(id,messageId,options),
+      sampleSharedVideo: args=>sampleSharedVideo(session,args),
       sendMessage: (id,text,options)=>chat.sendMessage(id,text,options),
       prepareChat: options=>chat.prepareChat(options),
       close:()=>session.close()

@@ -1,6 +1,6 @@
 {
   "name": "douyinluma",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -13,7 +13,7 @@
     "contacts": "node src/index.mjs --list-contacts",
     "contacts:visible": "node src/index.mjs --list-contacts --visible",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check src/index.mjs && node --check src/gateway.mjs && node --check src/allowlist-store.mjs && node --check src/web-admin.mjs && node --check src/browser-session.mjs && node --check src/douyin-driver.mjs && node --check src/contact-list.mjs && node --check src/shared-work.mjs && node --check src/onebot-format.mjs"
+    "check": "node --check src/index.mjs && node --check src/gateway.mjs && node --check src/allowlist-store.mjs && node --check src/web-admin.mjs && node --check src/browser-session.mjs && node --check src/douyin-driver.mjs && node --check src/contact-list.mjs && node --check src/shared-work.mjs && node --check src/onebot-format.mjs && node --check src/video-sampler.mjs && node --check src/video-trigger.mjs"
   },
   "dependencies": {
     "ws": "^8.18.3"

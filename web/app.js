@@ -40,7 +40,22 @@ function draw(){
      }catch(e){cover.checked=!enabled;note(e.message,true);}
      finally{cover.disabled=false;}
    });
-   coverCell.append(cover);tr.append(name,kind,id,cell,coverCell);tbody.append(tr);
+   coverCell.append(cover);
+   const videoCell=document.createElement('td'),video=document.createElement('input');
+   video.type='checkbox';video.checked=c.videoEnabled;
+   video.setAttribute('aria-label','允许按需视频分时采样 '+c.name);
+   video.title='仅响应明确的视频分析请求；私聊无需@，群聊必须@机器人。只采集约3秒画面，无音轨';
+   video.addEventListener('change',async()=>{
+     const enabled=video.checked;video.disabled=true;
+     try{
+       const r=await call('/api/conversations/'+encodeURIComponent(c.id)+'/video',
+         {method:'PUT',body:JSON.stringify({enabled})});
+       c.videoEnabled=r.item.videoEnabled;
+       note((c.videoEnabled?'已允许按需视频采样：':'已禁止按需视频采样：')+c.name);
+     }catch(e){video.checked=!enabled;note(e.message,true);}
+     finally{video.disabled=false;}
+   });
+   videoCell.append(video);tr.append(name,kind,id,cell,coverCell,videoCell);tbody.append(tr);
  }
  $('empty').hidden=items.length>0;
  $('empty').textContent=contacts.length?'没有匹配的会话':'尚未发现可核验会话，请尝试重新扫描';

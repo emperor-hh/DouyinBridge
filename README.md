@@ -2,6 +2,14 @@
 
 Experimental Douyin **private + group** message transport for AstrBot via OneBot v11. DouyinLuma uses an independent persistent Chromium browser and delegates all AI, persona and plugin handling to AstrBot. SnowLuma and QQ remain separate.
 
+## v0.5.0: opt-in real timed video playback sampling
+
+DouyinLuma can now open an explicitly authorized Douyin shared-work video in a **temporary Chromium tab**, mute/play for up to 5 seconds (default 3), collect 3 actual timestamped JPEG frames, verify time progress and visible video identity, pause/close the tab, and forward the frames to AstrBot as OneBot image segments. This is partial visual observation, not full video or audio understanding.
+
+**Off by default for every private conversation and group.** After upgrading, enable both the regular allowlist and **按需视频分时采样** in the Web admin UI. Users must explicitly request video analysis (e.g. “帮我分析这个视频”) after sending a card; groups additionally require an @mention of the bot and a card by the same member. A bare video share NEVER auto-plays. The nearest eligible card within 8 recent messages is used. Sampling quotas: 5 attempts per conversation per rolling 24 hours, 30 globally per rolling 24 hours, at least 90 seconds between attempts in one conversation, with persistent SQLite reservations. Set `VIDEO_SAMPLE_SECONDS=3` (1-5 allowed) in `.env`; changing it requires restart.
+
+The real playback/screenshot path has only been unit-tested with fakes, not a logged-in Douyin account. Actual Chrome UI, iframe, playback restrictions, media CORS, AstrBot image ingestion and group @ handling require Windows end-to-end tests. Read [docs/video-sampling.md](docs/video-sampling.md).
+
 ## v0.4.0: shared video/photo card forwarding (private + group)
 
 Authorized Douyin shared-work cards can now reach AstrBot as OneBot text messages, even if the card contains **no text**. They contain visible card title, author, and a strictly validated Douyin work link when available. This is **not** video understanding. The gateway does not autonomously open or play shared videos. `SHARED_VIDEO_FORWARDING=true` by default; set false to disable.

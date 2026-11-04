@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { messageEvent, textSegments } from './onebot-format.mjs';
 import { validatedContact } from './douyin-driver.mjs';
 import { formatIncomingMessage, incomingFingerprintParts, extractCoverFrame, sharedWorkDetails } from './shared-work.mjs';
+import { selectRequestedVideo, formatSampleEvidence } from './video-trigger.mjs';
+import { validateSampleTarget } from './video-sampler.mjs';
 
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const digest=x=>createHash('sha256').update(String(x)).digest('hex');
@@ -12,12 +14,13 @@ export class Gateway {
     Object.assign(this,{driver,store,client,config,allowlist,selfId,logger});
     this.baselines=new Map();this.contacts=new Map();
     this.running=false;this.busy=false;this.scanPromise=null;this.lastScan=null;this.lastScanError=null;
-    this.nextScanAt=0;this.scanIntervalMs=60_000;
+    this.nextScanAt=0;this.scanIntervalMs=60_000;this.videoAbort=new Map();
   }
   isScanning(){return Boolean(this.scanPromise);}
   authorizationChanged(id){
     // Previously queued/in-flight reads must not create an event after revoke.
     this.baselines.delete(id);
+    this.videoAbort.get(id)?.abort(Error('Video sampling authorization changed'));
     // Keep verified identity metadata for send-time re-check and UI, but
     // always consult the database for every event/action.
   }
@@ -72,6 +75,58 @@ export class Gateway {
       return null;
     }
   }
+  videoAllowed(c){
+    return Boolean(this.isAllowed(c)&&
+      this.allowlist.videoAllowed?.(c.id,c.isGroup?'group':'private',c.identityBinding));
+  }
+  async sampleIfRequested(c,request,rows){
+    if(this.config.shareForwarding===false)return null;
+    const selection=selectRequestedVideo(rows,rows.findIndex(m=>m.id===request.id),{group:c.isGroup});
+    if(!selection)return null;
+    const {card,work}=selection;
+    const unavailable=()=>({summary:'[未提供视频采样画面] 当前权限、配额或视频页面无法满足采样要求；不能仅凭链接推测视频内容。',frames:[]});
+    if(!this.videoAllowed(c)||typeof this.driver.sampleSharedVideo!=='function'||this.videoAbort.has(c.id))
+      return unavailable();
+    const sampleKey='sample:'+digest([c.id,request.id,card.id].join('|'));
+    if(!this.allowlist.reserveVideoSample(c.id,sampleKey).ok)return unavailable();
+    const abort=new AbortController(),signal=AbortSignal.any([abort.signal,AbortSignal.timeout(45_000)]);
+    this.videoAbort.set(c.id,abort);
+    const fingerprint=m=>digest(JSON.stringify(incomingFingerprintParts(m)));
+    const requestFingerprint=fingerprint(request),cardFingerprint=fingerprint(card);
+    try{
+      signal.throwIfAborted();
+      let videoId=work.videoId,url=work.url;
+      if(!url){
+        if(typeof this.driver.openSharedVideo!=='function')throw Error('分享作品没有可信链接');
+        const opened=await this.driver.openSharedVideo(c.id,card.id,{allowed:true,signal});
+        if(opened?.blocked||!opened?.videoId||!opened?.url||
+           videoId&&opened.videoId!==videoId)throw Error('分享作品身份未核实');
+        videoId=opened.videoId;url=opened.url;
+      }
+      validateSampleTarget({videoId,url,seconds:this.config.videoSampleSeconds??3});
+      if(!this.videoAllowed(c))return null;
+      const observation=await this.driver.sampleSharedVideo({
+        videoId,url,seconds:this.config.videoSampleSeconds??3,signal});
+      signal.throwIfAborted();
+      if(!this.videoAllowed(c))return null;
+      const after=await this.driver.readConversation(c.id,{allowed:true});
+      if(!this.videoAllowed(c)||!Array.isArray(after?.messages))return null;
+      const laterRequest=after.messages.find(m=>m.id===request.id);
+      const laterCard=after.messages.find(m=>m.id===card.id);
+      if(!laterRequest||!laterCard||fingerprint(laterRequest)!==requestFingerprint||
+        fingerprint(laterCard)!==cardFingerprint)throw Error('采样期间会话消息已变化');
+      if(observation?.videoId!==videoId||observation.url!==url)throw Error('作品 ID 与采样结果不匹配');
+      const summary=formatSampleEvidence(observation);
+      return {summary,frames:observation.frames.map(frame=>frame.data)};
+    }catch(error){
+      if(!this.videoAllowed(c)||signal.aborted)return null;
+      this.logger.warn?.('[video-sampling]',error?.message??String(error));
+      return unavailable();
+    }finally{
+      if(this.videoAbort.get(c.id)===abort)this.videoAbort.delete(c.id);
+      abort.abort();
+    }
+  }
   async pollOnce(){
     await this.refresh();
     // Snapshot allowed contacts; check authorization again after awaits.
@@ -97,11 +152,15 @@ export class Gateway {
           const senderId=this.store.id(c.isGroup?'user':'private',senderKey);
           const conversationId=this.store.id(c.isGroup?'group':'private',c.id);
           const msgId=this.store.id('message',k);
-          const coverBase64=this.config.shareForwarding===false?null:await this.captureCoverIfAllowed(c,m);
+          const sampled=await this.sampleIfRequested(c,m,rows);
+          if(!this.isAllowed(c))break;
+          const coverBase64=sampled?.frames?.length?null:
+            this.config.shareForwarding===false?null:await this.captureCoverIfAllowed(c,m);
           if(!this.isAllowed(c))break;
           this.client.event(messageEvent({selfId:this.selfId,messageId:msgId,conversationId,
             senderId,senderName:typeof m.member==='string'?m.member:typeof m.memberName==='string'?m.memberName:c.name,
-            group:c.isGroup,content,mentionedSelf:m.mentionedSelf===true,imageBase64:coverBase64}));
+            group:c.isGroup,content:sampled?content+'\n'+sampled.summary:content,
+            mentionedSelf:m.mentionedSelf===true,imageBase64:coverBase64,imageFrames:sampled?.frames??[]}));
         }
       }
       if(this.isAllowed(c))this.baselines.set(c.id,current);

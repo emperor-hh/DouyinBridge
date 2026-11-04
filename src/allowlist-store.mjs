@@ -31,6 +31,13 @@ export class AllowlistStore {
     if(!this.db.prepare('PRAGMA table_info(conversations)').all().some(row=>row.name==='cover_enabled')){
       this.db.exec('ALTER TABLE conversations ADD COLUMN cover_enabled INTEGER NOT NULL DEFAULT 0 CHECK(cover_enabled IN (0,1))');
     }
+    // Additive migration for existing v0.3/v0.4 SQLite data.
+    if(!this.db.prepare('PRAGMA table_info(conversations)').all().some(row=>row.name==='video_enabled'))
+      this.db.exec('ALTER TABLE conversations ADD COLUMN video_enabled INTEGER NOT NULL DEFAULT 0 CHECK(video_enabled IN (0,1))');
+    this.db.exec(`CREATE TABLE IF NOT EXISTS video_sample_log(
+      request_key TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );`);
     // Legacy env IDs are only imported when a matching verified contact appears.
     // Never override an explicit database disable on later restarts.
     const migrated=this.db.prepare("SELECT value FROM settings WHERE key='legacy_allowlist_migrated'").get();
@@ -68,8 +75,8 @@ export class AllowlistStore {
       this.db.exec('COMMIT');
     }catch(e){this.db.exec('ROLLBACK');throw e;}
   }
-  list(){return this.db.prepare('SELECT id,kind,name,enabled,cover_enabled,updated_at FROM conversations ORDER BY kind,name COLLATE NOCASE').all()
-    .map(({cover_enabled,...r})=>({...r,enabled:r.enabled===1,coverEnabled:cover_enabled===1}));}
+  list(){return this.db.prepare('SELECT id,kind,name,enabled,cover_enabled,video_enabled,updated_at FROM conversations ORDER BY kind,name COLLATE NOCASE').all()
+    .map(({cover_enabled,video_enabled,...r})=>({...r,enabled:r.enabled===1,coverEnabled:cover_enabled===1,videoEnabled:video_enabled===1}));}
   lookup(id){if(!CONVERSATION_ID.test(id))return null;
     return this.db.prepare('SELECT * FROM conversations WHERE id=?').get(id)??null;}
   allowed(id,kind,binding){
@@ -87,6 +94,39 @@ export class AllowlistStore {
     this.db.prepare('UPDATE conversations SET cover_enabled=?,updated_at=? WHERE id=?')
       .run(enabled?1:0,new Date().toISOString(),id);
     return this.list().find(row=>row.id===id);
+  }
+  videoAllowed(id,kind,binding){
+    const row=this.lookup(id);
+    return Boolean(row&&row.video_enabled===1&&this.allowed(id,kind,binding));
+  }
+  setVideoEnabled(id,enabled){
+    if(!CONVERSATION_ID.test(id)||typeof enabled!=='boolean')
+      throw Object.assign(Error('invalid video permission'),{statusCode:400});
+    if(!this.lookup(id))throw Object.assign(Error('conversation not found'),{statusCode:404});
+    this.db.prepare('UPDATE conversations SET video_enabled=?,updated_at=? WHERE id=?')
+      .run(enabled?1:0,new Date().toISOString(),id);
+    return this.list().find(row=>row.id===id);
+  }
+  reserveVideoSample(id,requestKey,{now=Date.now(),perConversation=5,globalLimit=30,cooldownMs=90_000}={}){
+    if(!CONVERSATION_ID.test(id)||!/^sample:[a-f0-9]{64}$/.test(requestKey)||!this.lookup(id)?.video_enabled)
+      return {ok:false,reason:'video permission disabled'};
+    const since=now-24*60*60*1000;
+    this.db.exec('BEGIN IMMEDIATE');
+    try{
+      if(this.db.prepare('SELECT 1 FROM video_sample_log WHERE request_key=?').get(requestKey)){
+        this.db.exec('COMMIT');return {ok:false,reason:'request already sampled'};
+      }
+      const per=this.db.prepare('SELECT COUNT(*) AS count,MAX(created_at) AS last_at FROM video_sample_log WHERE conversation_id=? AND created_at>=?')
+        .get(id,since);
+      const total=this.db.prepare('SELECT COUNT(*) AS count FROM video_sample_log WHERE created_at>=?').get(since).count;
+      if(per.count>=perConversation||total>=globalLimit||per.last_at!==null&&now-per.last_at<cooldownMs){
+        this.db.exec('COMMIT');
+        return {ok:false,reason:'video sampling cooldown or daily limit'};
+      }
+      this.db.prepare('INSERT INTO video_sample_log(request_key,conversation_id,created_at) VALUES(?,?,?)')
+        .run(requestKey,id,now);
+      this.db.exec('COMMIT');return {ok:true};
+    }catch(error){this.db.exec('ROLLBACK');throw error;}
   }
   setEnabled(id,enabled){
     if(!CONVERSATION_ID.test(id)||typeof enabled!=='boolean')throw Object.assign(Error('invalid conversation or enabled'),{statusCode:400});

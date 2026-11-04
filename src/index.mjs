@@ -22,7 +22,7 @@ const browserArgs={upstreamDir:cfg.upstream,profileDir:cfg.profileDir,headless:!
 let session,driver,client,gateway,allowlist,admin,stopping=false;
 async function stop(){
   if(stopping)return;stopping=true;
-  if(gateway)gateway.running=false;
+  if(gateway){gateway.running=false;for(const abort of gateway.videoAbort.values())abort.abort(Error('stopping'));}
   client?.close();
   if(admin)await admin.close().catch(e=>console.error('[admin close]',e.message));
   const closing=driver?.close?.()??session?.close?.();

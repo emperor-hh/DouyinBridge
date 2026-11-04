@@ -59,11 +59,14 @@ export async function startAdmin({gateway,store,host='127.0.0.1',port=3219,token
       }
       if(req.method==='PUT'&&url.pathname.startsWith('/api/conversations/')){
         const isCover=url.pathname.endsWith('/cover');
-        const id=decodeURIComponent(url.pathname.slice('/api/conversations/'.length,isCover? -'/cover'.length:undefined));
+        const isVideo=url.pathname.endsWith('/video');
+        const suffix=isVideo?'/video':isCover?'/cover':'';
+        const id=decodeURIComponent(url.pathname.slice('/api/conversations/'.length,suffix? -suffix.length:undefined));
         const body=await readJson(req);
         if(!body||typeof body.enabled!=='boolean'||Object.keys(body).some(x=>x!=='enabled'))
           return json(res,400,{error:'expected {enabled: boolean}'});
-        const updated=isCover?store.setCoverEnabled(id,body.enabled):store.setEnabled(id,body.enabled);
+        const updated=isVideo?store.setVideoEnabled(id,body.enabled):
+          isCover?store.setCoverEnabled(id,body.enabled):store.setEnabled(id,body.enabled);
         if(!isCover)gateway.authorizationChanged(id);
         return json(res,200,{item:updated});
       }

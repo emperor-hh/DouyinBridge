@@ -10,6 +10,9 @@ export function configFromEnv(env=process.env){
   if(!['chromium','msedge','bundled'].includes(browserChannel))throw Error('BROWSER_CHANNEL must be chromium, msedge or bundled');
   const adminPort=Number(env.ADMIN_PORT??3219);
   if(!Number.isInteger(adminPort)||adminPort<1||adminPort>65535)throw Error('ADMIN_PORT must be 1-65535');
+  const videoSampleSeconds=Number(env.VIDEO_SAMPLE_SECONDS??3);
+  if(!Number.isFinite(videoSampleSeconds)||videoSampleSeconds<1||videoSampleSeconds>5)
+    throw Error('VIDEO_SAMPLE_SECONDS must be 1-5');
   const data=path.resolve(env.DATA_DIR??'./data');
   return {
     url:url.toString(),token:env.ONEBOT_ACCESS_TOKEN??'',
@@ -19,6 +22,6 @@ export function configFromEnv(env=process.env){
     // Migrates legacy IDs once into SQLite; no longer the source of truth.
     allowlist:new Set((env.ALLOWED_CONVERSATIONS??'').split(',').map(x=>x.trim()).filter(Boolean)),
     enableSending:env.ENABLE_SENDING==='true',groupTrigger:env.GROUP_TRIGGER??'all',
-    shareForwarding:env.SHARED_VIDEO_FORWARDING!=='false'
+    shareForwarding:env.SHARED_VIDEO_FORWARDING!=='false',videoSampleSeconds
   };
 }
