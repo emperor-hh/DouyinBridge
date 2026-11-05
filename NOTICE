@@ -1,0 +1,15 @@
+DouyinLuma
+Copyright 2026 emperor-hh and DouyinLuma contributors
+
+This distribution includes original software authored for DouyinLuma and
+licensed under the Apache License, Version 2.0. The full license text is
+provided in the repository's LICENSE file.
+
+Third-party components, externally installed upstream code, and patches
+containing third-party source context are not relicensed by DouyinLuma.
+Their own licenses, copyright notices, and distribution conditions remain
+applicable. See THIRD_PARTY_NOTICES.md for source and licensing details.
+
+The names Douyin, AstrBot, and other product or project names used in
+documentation are the names of their respective owners. This project is
+independent and is not an official integration endorsed by those owners.

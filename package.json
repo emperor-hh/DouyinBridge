@@ -17,5 +17,10 @@
   },
   "dependencies": {
     "ws": "^8.18.3"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/emperor-hh/DouyinLuma.git"
   }
 }
