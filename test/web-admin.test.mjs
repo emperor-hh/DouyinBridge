@@ -5,7 +5,7 @@ import {AllowlistStore} from '../src/allowlist-store.mjs';
 import {startAdmin} from '../src/web-admin.mjs';
 
 test('admin API is authenticated and can toggle group and private dynamically',async()=>{
- const dir=fs.mkdtempSync(path.join(os.tmpdir(),'douyinluma-admin-'));
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'douyinbridge-admin-'));
  const db=new AllowlistStore(path.join(dir,'state.sqlite'));
  const group={id:'conv:'+'a'.repeat(64),isGroup:true,displayName:'Team',identityVerified:true,
  identityVersion:2,identityKind:'rendered-group',identityHash:'a'.repeat(64),identityBinding:'binding:'+'b'.repeat(64)};

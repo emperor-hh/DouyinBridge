@@ -26,7 +26,7 @@ function candidate(state){
     author:String(v.author??'').trim().slice(0,120)};
 }
 // Upstream controller needs a limit object even for a bounded, explicitly
-// requested DouyinLuma job. This is NOT a bypass of DouyinLuma's own quotas:
+// requested DouyinBridge job. This is NOT a bypass of DouyinBridge's own quotas:
 // the scheduler enforces independent, persistent daily limits and permissions.
 function scopedVideoLimits(stateDir,authorized){
   return {
@@ -68,7 +68,7 @@ export async function createAutomationBrowser({session,upstreamDir,dataDir,chat}
   }
   async function setMutedPlaying(page,allow){
     await page.evaluate(value=>{
-      window.__douyinlumaSamplingAuthorized=value;
+      window.__douyinbridgeSamplingAuthorized=value;
       for(const v of document.querySelectorAll('video')){
         try{v.muted=true;v.volume=0;if(!value)v.pause();}catch{}
       }

@@ -56,8 +56,8 @@ function stub({otherUrl=false,cors=false,multiple=false}={}){
    url:()=>url,locator:selector=>{assert.equal(selector,'[data-e2e="player-container"].video_123456 video:visible');return locator;},
    evaluate:async fn=>{
      const source=String(fn);
-     if(source.includes('__douyinlumaSamplingAuthorized=true'))allow=true;
-     if(source.includes('__douyinlumaSamplingAuthorized=false'))allow=false;
+     if(source.includes('__douyinbridgeSamplingAuthorized=true'))allow=true;
+     if(source.includes('__douyinbridgeSamplingAuthorized=false'))allow=false;
    },
    context:()=>({newCDPSession:async()=>({
       send:async()=>({data:jpeg}),detach:async()=>{cdpDetached=true;}

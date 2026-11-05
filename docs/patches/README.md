@@ -2,7 +2,7 @@
 
 This patch records the local fix tested against
 `menglimi/astrbot_plugin_private_companion` version 6.5.6. It changes that
-AstrBot plugin, not the DouyinLuma gateway. The installed plugin has already
+AstrBot plugin, not the DouyinBridge gateway. The installed plugin has already
 been patched and AstrBot restarted on this machine.
 
 The creative-work read guard mistook generated Douyin card fields such as
@@ -15,8 +15,8 @@ It does not add full gallery reading, audio transcription or video sampling.
 To apply on another installation, back up the plugin and run from its root:
 
 ```powershell
-git apply --check C:\work\code\DouyinLuma\docs\patches\private-companion-douyin-media.patch
-git apply C:\work\code\DouyinLuma\docs\patches\private-companion-douyin-media.patch
+git apply --check C:\work\code\DouyinBridge\docs\patches\private-companion-douyin-media.patch
+git apply C:\work\code\DouyinBridge\docs\patches\private-companion-douyin-media.patch
 ```
 
 Restart AstrBot after applying. If the check fails after a plugin upgrade,

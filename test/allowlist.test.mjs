@@ -12,7 +12,7 @@ const contact=(id,isGroup,name)=>({
  identityHash:id.slice(5),identityBinding:binding(id.slice(5,6)),isGroup,displayName:name,name
 });
 function fixture(legacyAllowlist=[]){
- const dir=fs.mkdtempSync(path.join(os.tmpdir(),'douyinluma-test-'));
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'douyinbridge-test-'));
  const db=new AllowlistStore(path.join(dir,'allowed.sqlite'),{legacyAllowlist});
  return {db,close(){db.close();fs.rmSync(dir,{recursive:true,force:true});}};
 }
@@ -52,7 +52,7 @@ test('invalid identity and ID collisions cannot auto authorize',()=>{
  }finally{f.close();}
 });
 test('legacy env allowlist is a one-time migration only',()=>{
- const dir=fs.mkdtempSync(path.join(os.tmpdir(),'douyinluma-migrate-'));
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'douyinbridge-migrate-'));
  const filename=path.join(dir,'allow.sqlite'),a=contact(conv('e'),false,'test');
  try{
   let db=new AllowlistStore(filename,{legacyAllowlist:[a.id]});
@@ -103,7 +103,7 @@ test('group messages use group ID and verified member ID only',async()=>{
 });
 
 test('pre-v0.4 SQLite schemas migrate without changing existing approvals',()=>{
- const dir=fs.mkdtempSync(path.join(os.tmpdir(),'douyinluma-old-db-'));
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'douyinbridge-old-db-'));
  const filename=path.join(dir,'state.sqlite');
  const a=contact(conv('d'),true,'旧群聊');
  try{

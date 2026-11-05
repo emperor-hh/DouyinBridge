@@ -1,11 +1,11 @@
 # 查询抖音会话 ID（只读）
 
-先正常退出 DouyinLuma，不要同时启动两个实例占用同一个 Chromium profile。
+先正常退出 DouyinBridge，不要同时启动两个实例占用同一个 Chromium profile。
 
 在 Windows PowerShell 中：
 
 ```powershell
-cd C:\work\code\DouyinLuma
+cd C:\work\code\DouyinBridge
 git pull
 npm install
 node --env-file=.env src/index.mjs --list-contacts --visible

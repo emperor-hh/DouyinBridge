@@ -32,7 +32,7 @@ export function summarizeContactListing(result) {
 }
 
 export function formatContactListing(data) {
-  const lines=['DouyinLuma 联系人查询（只读）',''];
+  const lines=['DouyinBridge 联系人查询（只读）',''];
   if(data.blocked||data.loginRequired||data.verificationRequired) {
     lines.push('警告：网页可能需要登录或人工验证，当前结果不完整。','');
   }

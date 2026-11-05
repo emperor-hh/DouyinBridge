@@ -43,7 +43,7 @@ export async function createBrowserSession({ profileDir, upstreamDir, headless =
       document.addEventListener('play',event=>{
         if(event.target instanceof HTMLVideoElement) {
           try{
-            if(window.__douyinlumaSamplingAuthorized===true){
+            if(window.__douyinbridgeSamplingAuthorized===true){
               event.target.muted=true;event.target.volume=0;
             }else HTMLMediaElement.prototype.pause.call(event.target);
           }catch{}

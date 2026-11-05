@@ -1,5 +1,5 @@
 {
-  "name": "douyinluma",
+  "name": "douyinbridge",
   "version": "0.7.0",
   "private": true,
   "type": "module",
@@ -21,6 +21,6 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/emperor-hh/DouyinLuma.git"
+    "url": "git+https://github.com/emperor-hh/DouyinBridge.git"
   }
 }

@@ -1,9 +1,9 @@
-# DouyinLuma v0.6.0：表情包收发（私聊 / 群聊）
+# DouyinBridge v0.6.0：表情包收发（私聊 / 群聊）
 
 ## 两种表情：Unicode 与图片表情包
 
 - **Unicode 表情**，例如 😊、😂：作为普通 OneBot 文本直接发送，无需图片权限。
-- **图片表情包**，包括 PNG、JPEG、GIF、WebP：由 AstrBot 生成标准 OneBot `image` 消息段，DouyinLuma 调用上游 `ChatBrowser.sendImageMessage` 上传到指定好友或群聊。GIF 仍以文件上传，是否在接收端动起来取决于抖音客户端。
+- **图片表情包**，包括 PNG、JPEG、GIF、WebP：由 AstrBot 生成标准 OneBot `image` 消息段，DouyinBridge 调用上游 `ChatBrowser.sendImageMessage` 上传到指定好友或群聊。GIF 仍以文件上传，是否在接收端动起来取决于抖音客户端。
 - **抖音平台原生表情面板中的表情 ID**：尚未支持通过面板点选发送，不能冒充为已实现。
 
 ## 开启发送
@@ -52,7 +52,7 @@ RECEIVE_STICKERS=true
 
 ## 接收表情包
 
-当抖音的已授权会话收到表情卡片，DouyinLuma 会将其输出为 `[抖音表情包]` 文本消息，并尝试附加从该条消息截图得到的 OneBot image 段；如截图失败仍发送表情卡片占位说明。图片数据经格式和大小验证，并有每会话至少 10 秒的截图间隔。
+当抖音的已授权会话收到表情卡片，DouyinBridge 会将其输出为 `[抖音表情包]` 文本消息，并尝试附加从该条消息截图得到的 OneBot image 段；如截图失败仍发送表情卡片占位说明。图片数据经格式和大小验证，并有每会话至少 10 秒的截图间隔。
 
 `RECEIVE_STICKERS=false` 会关闭截图，但仍转发表情包的文本说明。来源截图为单条表情消息的页面画面，可能不是原始透明 PNG 或原始动图，也不能证明动图全部内容。AstrBot 若需识图应启用支持图片的模型，并验证 OneBot base64 图片段被正确处理。
 

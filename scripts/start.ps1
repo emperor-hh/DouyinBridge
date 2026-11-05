@@ -23,11 +23,11 @@ try {
     try {
         $key = [BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes($projectDir.ToLowerInvariant()))).Replace('-', '')
     } finally { $hash.Dispose() }
-    $mutex = New-Object System.Threading.Mutex($false, "Local\DouyinLuma-$key")
+    $mutex = New-Object System.Threading.Mutex($false, "Local\DouyinBridge-$key")
     try { $ownsMutex = $mutex.WaitOne(0) }
     catch [System.Threading.AbandonedMutexException] { $ownsMutex = $true }
     if (-not $ownsMutex) {
-        Write-Host 'DouyinLuma already has a launcher running. Use its existing window.'
+        Write-Host 'DouyinBridge already has a launcher running. Use its existing window.'
     } else {
         $portOutput = & node --env-file=.env --input-type=module -e "import {configFromEnv} from './src/config.mjs'; if(Number(process.versions.node.split('.')[0])<22||(Number(process.versions.node.split('.')[0])===22&&Number(process.versions.node.split('.')[1])<13))throw Error('Node.js >= 22.13 is required'); console.log(configFromEnv().adminPort);"
         if ($LASTEXITCODE -ne 0) { throw 'Cannot load configuration. Check the error above.' }
@@ -39,12 +39,12 @@ try {
             $portInUse = $client.Connected
         } finally { $client.Dispose() }
         if ($portInUse) {
-            Write-Host "Port $adminPort is already in use. DouyinLuma may already be running. No second instance was started."
+            Write-Host "Port $adminPort is already in use. DouyinBridge may already be running. No second instance was started."
         } else {
             $nodeArgs = @('--env-file=.env', 'src/index.mjs')
             if ($Login) { $nodeArgs += '--login' }
             elseif ($Visible) { $nodeArgs += '--visible' }
-            Write-Host 'Starting DouyinLuma. Keep this window open; press Ctrl+C to stop.'
+            Write-Host 'Starting DouyinBridge. Keep this window open; press Ctrl+C to stop.'
             Write-Host "Admin: http://127.0.0.1:$adminPort/"
             & node @nodeArgs
             $exitCode = $LASTEXITCODE

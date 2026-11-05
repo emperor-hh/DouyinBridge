@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>DouyinLuma 控制台</title>
+<title>DouyinBridge 控制台</title>
 <style>
 :root{font-family:system-ui,-apple-system,"Microsoft YaHei",sans-serif;color:#202a38;background:#f5f7fb}
 body{margin:0}main{max-width:1000px;margin:30px auto;padding:0 20px}
@@ -17,7 +17,7 @@ table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:12px 8px
 @media(max-width:620px){th:nth-child(3),td:nth-child(3){display:none}}
 </style></head>
 <body><main>
-<header><div><h1>DouyinLuma</h1><p class="muted">私聊与群聊 · 动态授权 · 仅本机访问</p></div><span id="status" class="tag">等待连接</span></header>
+<header><div><h1>DouyinBridge</h1><p class="muted">私聊与群聊 · 动态授权 · 仅本机访问</p></div><span id="status" class="tag">等待连接</span></header>
 <section class="panel"><h2>管理授权</h2><p class="muted">启动程序后，从终端复制管理令牌。令牌只保存在当前浏览器标签的会话存储中。</p>
 <div class="row"><input id="token" type="password" size="44" autocomplete="off" placeholder="输入管理令牌">
 <button id="connect">连接</button><button id="refresh" disabled>重新扫描抖音会话</button></div><div id="notice" class="notice" role="status"></div>

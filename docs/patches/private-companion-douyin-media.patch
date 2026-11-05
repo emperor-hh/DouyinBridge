@@ -5,7 +5,7 @@
  
      def _creative_work_query_instruction_matches(self, text: Any) -> bool:
 -        normalized = _single_line(text, 260)
-+        # DouyinLuma appends external media evidence after the user's text.
++        # DouyinBridge appends external media evidence after the user's text.
 +        # Its metadata (e.g. "作品ID" / "内容范围") is not a request to read
 +        # this bot's creative bookshelf. Preserve any actual user query before it.
 +        media_parts = re.split(

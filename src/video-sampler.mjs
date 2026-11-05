@@ -92,7 +92,7 @@ export async function sampleVideoPage(page,args,{wait=delay}={}){
   try{
     // The global browser auto-pause guard remains active until the page and
     // exactly one video element have been verified.
-    await page.evaluate(()=>{window.__douyinlumaSamplingAuthorized=true;});
+    await page.evaluate(()=>{window.__douyinbridgeSamplingAuthorized=true;});
     const playing=await handle.evaluate(async video=>{
       video.muted=true;video.volume=0;await video.play();return !video.paused;
     });
@@ -125,7 +125,7 @@ export async function sampleVideoPage(page,args,{wait=delay}={}){
       fullVideoObserved:false,scope:'three-timed-playback-frames'}};
   }finally{
     if(started)await handle.evaluate(v=>v.pause()).catch(()=>{});
-    await page.evaluate(()=>{window.__douyinlumaSamplingAuthorized=false;}).catch(()=>{});
+    await page.evaluate(()=>{window.__douyinbridgeSamplingAuthorized=false;}).catch(()=>{});
     await handle.dispose().catch(()=>{});
   }
 }

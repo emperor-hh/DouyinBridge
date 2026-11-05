@@ -1,10 +1,10 @@
-# DouyinLuma v0.5.0 — 真实视频分时采样
+# DouyinBridge v0.5.0 — 真实视频分时采样
 
 ## 功能定位
 
 本功能按需从**已授权会话中的已核实分享卡片**打开抖音公开作品，在独立临时标签页中静音播放约 3 秒，收集 3 张有时间线信息的 JPEG 实际视频画面，并通过 OneBot v11 image 段发送给 AstrBot 的视觉模型。
 
-它不是视频下载器，不提供音轨、字幕或完整视频理解。不使用 DouyinLuma 自建 LLM；视频理解、文字生成由 AstrBot 负责。用户必须明确提出分析请求，不能仅发送视频卡片。
+它不是视频下载器，不提供音轨、字幕或完整视频理解。不使用 DouyinBridge 自建 LLM；视频理解、文字生成由 AstrBot 负责。用户必须明确提出分析请求，不能仅发送视频卡片。
 
 ## 启用方式
 
@@ -37,7 +37,7 @@
 
 ## 限制
 
-本实现借鉴 dsh-douyin-agent `core.mjs` 中 `observeChatSharedWork`、`captureSharedFrames` 的验证原则，但因为原项目使用专用 Edge/CDP 而 DouyinLuma 使用持久 Chromium，实际采样使用独立的 Playwright 页面实现，不直接加载上游的 AI/自主视频观看 worker。
+本实现借鉴 dsh-douyin-agent `core.mjs` 中 `observeChatSharedWork`、`captureSharedFrames` 的验证原则，但因为原项目使用专用 Edge/CDP 而 DouyinBridge 使用持久 Chromium，实际采样使用独立的 Playwright 页面实现，不直接加载上游的 AI/自主视频观看 worker。
 
 **尚无真实抖音登录环境的完整端到端验证**；无头环境可能出现登录、视频打不开、跨域或播放器缺失等问题；群 @ 和 OneBot base64 图片能否被特定 AstrBot 配置接收，也需要当地环境测试。日志和图片可能包含私密信息，请保护本机 data 目录及控制台 token。
 

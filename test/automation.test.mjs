@@ -11,7 +11,7 @@ const contact=(id,isGroup)=>({id,isGroup,name:isGroup?'群聊':'好友',displayN
  identityVerified:true,identityVersion:2,identityKind:isGroup?'rendered-group':'rendered-user',
  identityHash:id.slice(5),identityBinding:binding(id.slice(5,6))});
 function fixture(){
- const dir=fs.mkdtempSync(path.join(os.tmpdir(),'douyinluma-auto-'));
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'douyinbridge-auto-'));
  const file=path.join(dir,'allowlist.sqlite'),allowed=new AllowlistStore(file);
  const auto=new AutomationStore(allowed);
  const direct=contact(conv('a'),false),group=contact(conv('b'),true);

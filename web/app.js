@@ -1,6 +1,8 @@
 'use strict';
 const $=id=>document.getElementById(id);
-let token=sessionStorage.getItem('douyinluma-admin')??'';
+const ADMIN_TOKEN_KEY='douyinbridge-admin';
+const LEGACY_ADMIN_TOKEN_KEY='douyinluma-admin';
+let token=sessionStorage.getItem(ADMIN_TOKEN_KEY)??sessionStorage.getItem(LEGACY_ADMIN_TOKEN_KEY)??'';
 let contacts=[];
 let automationData=null;
 $('token').value=token;
@@ -100,7 +102,7 @@ async function load(){
 }
 $('connect').onclick=async()=>{
  token=$('token').value.trim();
- try{await load();sessionStorage.setItem('douyinluma-admin',token);note('连接成功');}
+ try{await load();sessionStorage.setItem(ADMIN_TOKEN_KEY,token);sessionStorage.removeItem(LEGACY_ADMIN_TOKEN_KEY);note('连接成功');}
  catch(e){note(e.message,true);}
 };
 $('refresh').onclick=async()=>{

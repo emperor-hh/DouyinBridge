@@ -1,12 +1,14 @@
-# DouyinLuma
+# DouyinBridge
 
 > 一个基于 **Chromium 浏览器自动化 + OneBot v11 反向 WebSocket** 的抖音消息桥接项目，让 [AstrBot](https://github.com/AstrBotDevs/AstrBot) 能够处理经过授权的抖音私聊与群聊消息，并探索视频卡片、图片表情包、自动浏览与定时分享等能力。
 
 **当前版本：v0.7.0｜开发实验阶段｜优先支持 Windows 本地部署**
 
+> **仓库更名过渡提示**：本项目原名 DouyinLuma，源码中的项目名称现已统一为 DouyinBridge。GitHub 仓库网页地址需要仓库管理员另外在 Settings → General 中改为 `emperor-hh/DouyinBridge`；在此之前旧仓库 URL 仍然是有效的克隆入口。
+
 **开源协议：** [Apache License 2.0](LICENSE) · [版权与归属声明](NOTICE) · [第三方许可说明](THIRD_PARTY_NOTICES.md)
 
-**重要说明：** DouyinLuma 并非抖音官方接口，也不是独立 AI 聊天机器人。它负责浏览器交互、会话识别、消息转换与发送权限控制；AI 回复、视觉模型和插件能力由 AstrBot 提供。项目的自动化逻辑和上游网页适配仍在验证，**GitHub Actions 单元测试通过不代表真实抖音账号下的收发功能已经完成端到端测试**。
+**重要说明：** DouyinBridge 并非抖音官方接口，也不是独立 AI 聊天机器人。它负责浏览器交互、会话识别、消息转换与发送权限控制；AI 回复、视觉模型和插件能力由 AstrBot 提供。项目的自动化逻辑和上游网页适配仍在验证，**GitHub Actions 单元测试通过不代表真实抖音账号下的收发功能已经完成端到端测试**。
 
 ## 目录
 
@@ -28,7 +30,7 @@
 
 ## 项目简介
 
-DouyinLuma 使用独立的**持久化 Chromium 浏览器**访问抖音网页，并尝试将已授权的消息会话转换为 OneBot v11 事件，通过反向 WebSocket 发送给 AstrBot；当 AstrBot 返回消息时，再通过网页端执行相应发送操作。
+DouyinBridge 使用独立的**持久化 Chromium 浏览器**访问抖音网页，并尝试将已授权的消息会话转换为 OneBot v11 事件，通过反向 WebSocket 发送给 AstrBot；当 AstrBot 返回消息时，再通过网页端执行相应发送操作。
 
 核心设计原则：
 
@@ -70,7 +72,7 @@ DouyinLuma 使用独立的**持久化 Chromium 浏览器**访问抖音网页，�
                      ├─ 按需视频采样页面
                      └─ 自动浏览 / 分享页面
                                    │
-                              DouyinLuma
+                              DouyinBridge
                      ├─ 上游聊天浏览器适配
                      ├─ 私聊 / 群聊消息网关
                      ├─ OneBot v11 协议转换
@@ -95,7 +97,7 @@ DouyinLuma 使用独立的**持久化 Chromium 浏览器**访问抖音网页，�
 | --- | --- |
 | Node.js | **22.13 或以上**的兼容版本 |
 | Git | 用于拉取仓库与固定版本的上游源码 |
-| npm | 安装 DouyinLuma 依赖 |
+| npm | 安装 DouyinBridge 依赖 |
 | pnpm | 安装固定版本的上游依赖 |
 | PowerShell | 执行 Windows 上游安装脚本 |
 | Chromium / Playwright | 由浏览器运行组件提供，需与当前环境兼容 |
@@ -106,14 +108,14 @@ DouyinLuma 使用独立的**持久化 Chromium 浏览器**访问抖音网页，�
 
 ## Windows 快速开始
 
-以下示例使用 PowerShell，假设准备将项目放在 `C:\work\code\DouyinLuma`。如果已经克隆过项目，可跳过克隆步骤，直接在项目目录执行 `git pull`。
+以下示例使用 PowerShell，假设准备将项目放在 `C:\work\code\DouyinBridge`。如果已经克隆过项目，可跳过克隆步骤，直接在项目目录执行 `git pull`。
 
 ### 1. 获取源码
 
 ```powershell
 cd C:\work\code
-git clone https://github.com/emperor-hh/DouyinLuma.git
-cd DouyinLuma
+git clone https://github.com/emperor-hh/DouyinLuma.git DouyinBridge
+cd DouyinBridge
 ```
 
 ### 2. 安装依赖
@@ -256,7 +258,7 @@ node --env-file=.env src/index.mjs --list-contacts --visible
 
 ## 图片表情包收发
 
-DouyinLuma 可以将已授权会话里的抖音表情卡片转为文字说明，并在条件允许时附加单张截图。也可以接收 AstrBot 发送的 OneBot 图片消息，尝试通过抖音网页聊天界面上传图片。
+DouyinBridge 可以将已授权会话里的抖音表情卡片转为文字说明，并在条件允许时附加单张截图。也可以接收 AstrBot 发送的 OneBot 图片消息，尝试通过抖音网页聊天界面上传图片。
 
 目前支持上传 **PNG、JPEG、GIF、WebP** 图片。发送图片时需同时满足：
 
@@ -375,8 +377,8 @@ data/
 **更新项目时，请保留 `.env`、`data/` 和浏览器 Profile，不要为了升级而删除运行状态。** 推荐流程：
 
 ```powershell
-# 先正常停止正在运行的 DouyinLuma
-cd C:\work\code\DouyinLuma
+# 先正常停止正在运行的 DouyinBridge
+cd C:\work\code\DouyinBridge
 
 # 重要：升级前备份 .env 和 data
 git pull
@@ -439,12 +441,12 @@ npm test       # 执行离线单元测试
 
 ## 开源协议与第三方版权
 
-**DouyinLuma 原创代码与原创文档采用 [Apache License 2.0](LICENSE) 许可证。** 这是一份标准、宽松的开源许可，允许在遵守许可条款的前提下使用、修改、分发与商业使用，并包含明确的专利授权与责任限制条款。
+**DouyinBridge 原创代码与原创文档采用 [Apache License 2.0](LICENSE) 许可证。** 这是一份标准、宽松的开源许可，允许在遵守许可条款的前提下使用、修改、分发与商业使用，并包含明确的专利授权与责任限制条款。
 
 使用和再分发时请注意：
 
 - 保留相关许可、版权与修改声明；涉及第三方组件时还应遵守它们各自的许可条件。
-- 项目根目录的 [NOTICE](NOTICE) 记录 DouyinLuma 的版权与归属说明；[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 列出上游项目、依赖和外部兼容补丁的权利边界。
+- 项目根目录的 [NOTICE](NOTICE) 记录 DouyinBridge 的版权与归属说明；[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 列出上游项目、依赖和外部兼容补丁的权利边界。
 - `dsh-douyin-agent` 自身仍使用 **MIT** 许可证。引用它的代码、运行环境或安装依赖，**不会因为本项目使用 Apache-2.0 就改变其原有版权与许可**。
 - 本仓库包含第三方插件的兼容补丁；补丁中的第三方代码上下文**不属于**本项目 Apache-2.0 许可的授权范围。
 - 项目并非抖音官方产品。开源许可证不代替抖音、AstrBot 或其他服务的使用规则。
@@ -461,8 +463,8 @@ npm test       # 执行离线单元测试
 4. **稳定性**：完善运行健康检查、普通消息持久化水位及可恢复发送队列。
 5. **视频推荐**：在真实浏览与分享稳定后，再考虑可选的 AstrBot 多模态内容筛选。
 
-**上游项目：** [LockyBee/dsh-douyin-agent](https://github.com/LockyBee/dsh-douyin-agent)。DouyinLuma 通过固定提交版本使用其部分浏览器与聊天能力。请遵守上游的 MIT 许可及相关第三方声明。
+**上游项目：** [LockyBee/dsh-douyin-agent](https://github.com/LockyBee/dsh-douyin-agent)。DouyinBridge 通过固定提交版本使用其部分浏览器与聊天能力。请遵守上游的 MIT 许可及相关第三方声明。
 
 ---
 
-**DouyinLuma 目前面向开发、学习和小规模授权测试，不应被描述为已经验证的生产级抖音消息网关。**
+**DouyinBridge 目前面向开发、学习和小规模授权测试，不应被描述为已经验证的生产级抖音消息网关。**
