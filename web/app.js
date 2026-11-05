@@ -2,6 +2,7 @@
 const $=id=>document.getElementById(id);
 let token=sessionStorage.getItem('douyinluma-admin')??'';
 let contacts=[];
+let automationData=null;
 $('token').value=token;
 const note=(msg,bad=false)=>{$('notice').textContent=msg;$('notice').style.color=bad?'#b42318':'#355e4d';};
 async function call(url,opts={}){
@@ -70,7 +71,24 @@ function draw(){
      }catch(e){sticker.checked=!enabled;note(e.message,true);}
      finally{sticker.disabled=false;}
    });
-   stickerCell.append(sticker);tr.append(name,kind,id,cell,coverCell,videoCell,stickerCell);tbody.append(tr);
+   stickerCell.append(sticker);
+   const autoCell=document.createElement('td'),auto=document.createElement('input');
+   auto.type='checkbox';auto.checked=c.autoShareEnabled;
+   auto.setAttribute('aria-label','允许定时分享 '+c.name);
+   auto.title='允许定时任务向此会话发送原生视频卡片，需另行开启全局开关';
+   auto.addEventListener('change',async()=>{
+     const enabled=auto.checked;auto.disabled=true;
+     try{
+       const r=await call('/api/conversations/'+encodeURIComponent(c.id)+'/auto-share',
+         {method:'PUT',body:JSON.stringify({enabled})});
+       c.autoShareEnabled=r.item.autoShareEnabled;note((enabled?'已允许：':'已禁止：')+'定时分享 '+c.name);
+       await loadAutomation();
+     }catch(e){auto.checked=!enabled;note(e.message,true);}
+     finally{auto.disabled=false;}
+   });
+   autoCell.append(auto);
+   tr.append(name,kind,id,cell,coverCell,videoCell,stickerCell,autoCell);
+   tbody.append(tr);
  }
  $('empty').hidden=items.length>0;
  $('empty').textContent=contacts.length?'没有匹配的会话':'尚未发现可核验会话，请尝试重新扫描';
@@ -78,7 +96,7 @@ function draw(){
 async function load(){
  const [c,s]=await Promise.all([call('/api/conversations'),call('/api/status')]);
  contacts=c.items;$('status').textContent=s.running?'网关运行中':'网关未运行';
- $('refresh').disabled=false;draw();
+ $('refresh').disabled=false;draw();await loadAutomation();
 }
 $('connect').onclick=async()=>{
  token=$('token').value.trim();
@@ -95,3 +113,127 @@ $('refresh').onclick=async()=>{
 };
 $('search').oninput=draw;$('filter').onchange=draw;
 if(token)load().catch(e=>note(e.message,true));
+
+function el(tag,value){
+ const node=document.createElement(tag);
+ if(value!==undefined)node.textContent=String(value);
+ return node;
+}
+function renderAutomation(){
+ if(!automationData)return;
+ const a=automationData;
+ $('auto-status').textContent='自动浏览：'+(a.browsingGloballyEnabled?'已开启':'总开关关闭')+
+   ' ｜ 自动分享：'+(a.sharingGloballyEnabled?'已开启':'总开关关闭')+
+   ' ｜ 时区：'+a.timeZone+(a.running?' ｜ 正在运行任务':'');
+ const target=$('plan-target'),previous=target.value;target.replaceChildren();
+ for(const c of contacts.filter(c=>c.enabled)){
+   const opt=el('option',(c.kind==='group'?'群聊 · ':'私聊 · ')+c.name);
+   opt.value=c.id;target.append(opt);
+ }
+ if([...target.options].some(x=>x.value===previous))target.value=previous;
+ $('plan-create').disabled=!a.browsingGloballyEnabled||target.options.length===0;
+ const plans=$('plan-rows');plans.replaceChildren();
+ for(const p of a.plans){
+   const tr=el('tr'),identity=el('td'),recipient=contacts.find(c=>c.id===p.conversationId);
+   identity.append(el('strong',p.name),el('div',recipient?.name??p.kind),el('small',p.topic?'主题：'+p.topic:'推荐流'));
+   const browse=el('td',p.browseAt+' / '+p.browseCount+' 条');
+   const share=el('td',p.shareAt+' / '+p.shareCount+' 条');
+   const enabledCell=el('td'),toggle=el('input');
+   toggle.type='checkbox';toggle.checked=p.enabled;toggle.setAttribute('aria-label','启用任务 '+p.name);
+   toggle.onchange=async()=>{
+     const enabled=toggle.checked;toggle.disabled=true;
+     try{
+       await call('/api/automation/plans/'+p.id,{method:'PUT',body:JSON.stringify({enabled})});
+       note('计划已'+(enabled?'启用':'停用')+'：'+p.name);
+       await loadAutomation();
+     }catch(e){toggle.checked=!enabled;note(e.message,true);}
+     finally{toggle.disabled=false;}
+   };enabledCell.append(toggle);
+   const browseCell=el('td'),run=el('button','手动浏览');
+   run.disabled=!a.browsingGloballyEnabled||!p.enabled;
+   run.onclick=async()=>{
+     run.disabled=true;note('正在浏览抖音并收集候选作品：'+p.name);
+     try{
+       const result=await call('/api/automation/plans/'+p.id+'/browse',{method:'POST'});
+       note('浏览完成：观察到 '+result.observed+' 条，新入池 '+result.added+' 条');
+       await loadAutomation();
+     }catch(e){note('浏览失败：'+e.message,true);}
+     finally{run.disabled=false;}
+   };
+   browseCell.append(run);tr.append(identity,browse,share,enabledCell,browseCell);
+   plans.append(tr);
+ }
+ const select=$('candidate-plan'),selected=select.value;select.replaceChildren();
+ for(const p of a.plans){
+   const opt=el('option',p.name);opt.value=p.id;select.append(opt);
+ }
+ if([...select.options].some(x=>x.value===selected))select.value=selected;
+ $('candidate-add').disabled=select.options.length===0;
+ renderCandidates();
+ const receipts=$('delivery-rows');receipts.replaceChildren();
+ for(const d of a.deliveries.slice(0,30)){
+   const tr=el('tr');
+   const first=el('td');first.append(el('code',d.videoId),el('div',new Date(d.startedAt).toLocaleString('zh-CN')));
+   const status=el('td',d.status),buttons=el('td');
+   if(['reserved','uncertain'].includes(d.status)){
+     for(const outcome of ['confirmed','not-sent']){
+       const btn=el('button',outcome==='confirmed'?'已发送':'确定未发送');
+       btn.style.marginRight='6px';
+       btn.onclick=async()=>{
+         if(!window.confirm('请先在抖音核实该视频的真实发送结果。确定记录为'+(outcome==='confirmed'?'已发送':'确定未发送')+'？'))return;
+         btn.disabled=true;
+         try{
+           await call('/api/automation/deliveries/'+d.id,
+             {method:'PUT',body:JSON.stringify({outcome})});
+           note('人工核实记录已更新');await loadAutomation();
+         }catch(e){note(e.message,true);btn.disabled=false;}
+       };
+       buttons.append(btn);
+     }
+   }else buttons.textContent=d.note??'';
+   tr.append(first,status,buttons);receipts.append(tr);
+ }
+}
+function renderCandidates(){
+ const tbody=$('candidate-rows');tbody.replaceChildren();
+ if(!automationData)return;
+ const planId=$('candidate-plan').value;
+ const items=automationData.candidates?.[planId]??[];
+ for(const c of items.slice(0,50)){
+   const tr=el('tr'),primary=el('td');
+   const link=el('a',c.title||c.videoId);
+   link.href=c.url;link.target='_blank';link.rel='noopener noreferrer';
+   primary.append(link,el('div',c.author||c.videoId));
+   tr.append(primary,el('td',c.source),el('td',c.deliveryStatus??'候选'));
+   tbody.append(tr);
+ }
+}
+async function loadAutomation(){
+ automationData=await call('/api/automation');renderAutomation();
+}
+$('plan-create').onclick=async()=>{
+ $('plan-create').disabled=true;
+ const plan={name:$('plan-name').value,conversationId:$('plan-target').value,
+   topic:$('plan-topic').value,browseAt:$('plan-browse').value,
+   shareAt:$('plan-share').value,browseCount:Number($('plan-browse-count').value),
+   shareCount:Number($('plan-share-count').value)};
+ try{
+   await call('/api/automation/plans',{method:'POST',body:JSON.stringify(plan)});
+   note('已创建任务，默认关闭。开启前请检查接收方和全局发送开关。');
+   await loadAutomation();
+ }catch(e){note(e.message,true);}
+ finally{$('plan-create').disabled=false;}
+};
+$('candidate-plan').onchange=renderCandidates;
+$('candidate-add').onclick=async()=>{
+ const id=$('candidate-plan').value,url=$('candidate-url').value.trim();
+ if(!id||!url)return;
+ $('candidate-add').disabled=true;
+ try{
+   const result=await call('/api/automation/plans/'+id+'/candidates',
+     {method:'POST',body:JSON.stringify({url})});
+   note('候选视频已处理：新增 '+result.added+' 条');$('candidate-url').value='';
+   await loadAutomation();
+ }catch(e){note(e.message,true);}
+ finally{$('candidate-add').disabled=false;}
+};

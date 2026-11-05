@@ -2,6 +2,7 @@ import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { createBrowserSession } from './browser-session.mjs';
 import { sampleSharedVideo } from './video-sampler.mjs';
+import {createAutomationBrowser} from './automation-browser.mjs';
 
 export async function loadDriver({upstreamDir,profileDir,headless=true,browserChannel='chromium',chromiumImpl} = {}) {
   const url=pathToFileURL(path.join(upstreamDir,'chat-browser.mjs')).href;
@@ -18,6 +19,9 @@ export async function loadDriver({upstreamDir,profileDir,headless=true,browserCh
     // Pre-provision a page and inject our managed Chromium session.
     await session.prepareChatPage();
     const chat=createVerifiedChatBrowser(ChatBrowser,{source:'api-chat',controller});
+    let automationPromise=null;
+    const automation=()=>automationPromise??=createAutomationBrowser({
+      session,upstreamDir,dataDir:path.dirname(profileDir),chat});
     return {
       session, chat,
       listContacts: options=>chat.listContacts(options),
@@ -28,7 +32,12 @@ export async function loadDriver({upstreamDir,profileDir,headless=true,browserCh
       sendMessage: (id,text,options)=>chat.sendMessage(id,text,options),
       sendImageMessage: (id,asset,options)=>chat.sendImageMessage(id,asset,options),
       prepareChat: options=>chat.prepareChat(options),
-      close:()=>session.close()
+      browseCandidates: options=>automation().then(x=>x.browse(options)),
+      forwardNativeVideo: options=>automation().then(x=>x.shareNative(options)),
+      close:async()=>{
+        if(automationPromise)await automationPromise.then(x=>x.close()).catch(()=>{});
+        await session.close();
+      }
     };
   } catch(error) {
     await session.close().catch(()=>{});

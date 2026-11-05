@@ -25,6 +25,37 @@ table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:12px 8px
 <section class="panel"><div class="row"><h2>会话授权</h2><input type="search" id="search" placeholder="搜索好友或群名">
 <select id="filter"><option value="all">全部</option><option value="private">私聊</option><option value="group">群聊</option></select></div>
 <p class="muted">关闭白名单会停止该会话后续消息上报，并在发送前再次核验。视频分享默认只传递标题/作者/可信链接，不会播放。可单独开启封面预览或真实视频分时采样。分时采样默认关闭：私聊需要明确说“分析这个视频”等请求，群聊还必须 @机器人，且最近的视频分享来自同一成员；只静音播放约 3 秒并取 3 张画面，没有音频或全片证据。要求 AstrBot 有图片理解能力。表情包支持读取图片表情，以及从 AstrBot 上传 PNG/JPEG/GIF/WebP 图片表情；每个会话可单独授权发送，仍受到全局 ENABLE_SENDING 和 ENABLE_IMAGE_SENDING 限制。</p>
-<div style="overflow:auto"><table><thead><tr><th>会话名称</th><th>类型</th><th>会话 ID</th><th>允许 AstrBot 处理</th><th>视频卡片封面</th><th>按需视频分时采样</th><th>发送表情图片</th></tr></thead><tbody id="rows"></tbody></table></div>
+<div style="overflow:auto"><table><thead><tr><th>会话名称</th><th>类型</th><th>会话 ID</th><th>允许 AstrBot 处理</th><th>视频卡片封面</th><th>按需视频分时采样</th><th>发送表情图片</th><th>定时主动分享</th></tr></thead><tbody id="rows"></tbody></table></div>
 <p id="empty" class="muted">未加载会话</p></section>
+<section class="panel">
+<h2>定时浏览与分享</h2>
+<p class="muted">先在 .env 明确开启浏览与分享总开关，给目标好友或群聊勾选“定时主动分享”，再创建并启用计划。时间按北京时间（Asia/Shanghai）。计划默认关闭。</p>
+<div class="row">
+<label for="plan-name">名称</label><input id="plan-name" placeholder="每日搞笑视频" maxlength="80" size="16">
+<label for="plan-target">目标</label><select id="plan-target"></select>
+<label for="plan-topic">主题关键词</label><input id="plan-topic" placeholder="空=推荐流" maxlength="80" size="15">
+</div>
+<div class="row" style="margin-top:12px">
+<label for="plan-browse">浏览时间</label><input type="time" id="plan-browse" value="10:00">
+<label for="plan-share">分享时间</label><input type="time" id="plan-share" value="19:30">
+<label for="plan-browse-count">浏览条数</label><input type="number" id="plan-browse-count" min="1" max="10" value="5" style="width:65px">
+<label for="plan-share-count">分享条数</label><input type="number" id="plan-share-count" min="1" max="2" value="1" style="width:65px">
+<button id="plan-create" disabled>新增计划</button></div>
+<p id="auto-status" class="muted">未连接</p>
+<div style="overflow:auto"><table><thead><tr><th>任务 / 目标</th><th>每日浏览</th><th>每日分享</th><th>启用</th><th>手动浏览</th></tr></thead>
+<tbody id="plan-rows"></tbody></table></div>
+</section>
+<section class="panel">
+<h2>候选视频池</h2>
+<div class="row"><select id="candidate-plan"></select><input id="candidate-url" type="text" placeholder="https://www.douyin.com/video/123..." size="42">
+<button id="candidate-add" disabled>添加候选视频</button></div>
+<div style="overflow:auto"><table><thead><tr><th>作品</th><th>来源</th><th>发送状态</th></tr></thead>
+<tbody id="candidate-rows"></tbody></table></div>
+</section>
+<section class="panel">
+<h2>原生分享回执</h2>
+<p class="muted">分享回执不明确时，任务会暂停该收件人的后续分享。请先在抖音核实实际发送结果，再手动标记“已发送”或“确定未发送”。未知情况不要随意解除。</p>
+<div style="overflow:auto"><table><thead><tr><th>作品 ID / 时间</th><th>状态</th><th>操作</th></tr></thead>
+<tbody id="delivery-rows"></tbody></table></div>
+</section>
 </main><script src="/app.js"></script></body></html>

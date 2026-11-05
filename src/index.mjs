@@ -9,6 +9,8 @@ import { createBrowserSession } from './browser-session.mjs';
 import { summarizeContactListing, formatContactListing } from './contact-list.mjs';
 import { OneBotClient } from './onebot.mjs';
 import { Gateway } from './gateway.mjs';
+import {AutomationStore} from './automation-store.mjs';
+import {AutomationScheduler} from './automation-scheduler.mjs';
 
 const cfg=configFromEnv(),args=new Set(process.argv.slice(2));
 const login=args.has('--login'),listContacts=args.has('--list-contacts');
@@ -19,11 +21,12 @@ process.env.DOUYIN_STATE_DIR=path.join(cfg.data,'upstream-state');
 process.env.DOUYIN_RUNTIME_LOCATION_FILE=path.join(cfg.data,'runtime-location.json');
 fs.mkdirSync(path.join(cfg.profileDir,'control'),{recursive:true});
 const browserArgs={upstreamDir:cfg.upstream,profileDir:cfg.profileDir,headless:!visible,browserChannel:cfg.browserChannel};
-let session,driver,client,gateway,allowlist,admin,stopping=false;
+let session,driver,client,gateway,allowlist,admin,automation,stopping=false;
 async function stop(){
   if(stopping)return;stopping=true;
   if(gateway){gateway.running=false;for(const abort of gateway.videoAbort.values())abort.abort(Error('stopping'));}
   client?.close();
+  if(automation)await automation.stop().catch(e=>console.error('[automation stop]',e.message));
   if(admin)await admin.close().catch(e=>console.error('[admin close]',e.message));
   const closing=driver?.close?.()??session?.close?.();
   if(closing)await closing.catch(e=>console.error('[browser close]',e.message));
@@ -50,11 +53,13 @@ try{
     client=new OneBotClient({url:cfg.url,token:cfg.token,selfId:990000001,
       actions:(a,p)=>gateway.actions(a,p),onState:s=>console.log('[onebot]',s)});
     gateway=new Gateway({driver,store,client,config:cfg,allowlist});
-    admin=await startAdmin({gateway,store:allowlist,port:cfg.adminPort,token:cfg.adminToken});
+    const automationStore=new AutomationStore(allowlist);
+    automation=new AutomationScheduler({store:automationStore,allowlist,driver,gateway,config:cfg});
+    admin=await startAdmin({gateway,store:allowlist,automation,port:cfg.adminPort,token:cfg.adminToken});
     console.log('[admin] URL:',admin.url);
     console.log('[admin] Token:',admin.token);
     console.log('[browser]',visible?'visible':'headless',cfg.browserChannel,'profile:',cfg.profileDir);
     console.log('[gateway] Sending enabled:',cfg.enableSending,'authorized:',allowlist.list().filter(c=>c.enabled).length);
-    client.connect();await gateway.loop();
+    client.connect();automation.start();await gateway.loop();
   }
 }finally{await stop();}

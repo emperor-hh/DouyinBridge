@@ -2,6 +2,18 @@
 
 Experimental Douyin **private + group** message transport for AstrBot via OneBot v11. DouyinLuma uses an independent persistent Chromium browser and delegates all AI, persona and plugin handling to AstrBot. SnowLuma and QQ remain separate.
 
+## v0.7.0: scheduled browse → candidate pool → native Douyin video card sharing
+
+New **disabled-by-default** per-conversation daily plans are managed in the local Web UI.
+
+- Each plan selects a verified private chat or group, a Beijing-time browsing slot, a sharing slot, optional topic-search keyword, browse count (1–10) and share count (1–2).
+- Browser automation verifies visible video identity, plays briefly and saves observed candidates in SQLite. Exact Douyin public video links may also be added manually. This is not AI video understanding or scoring.
+- At the share slot, the scheduler calls the pinned upstream `VideoForwarder.forwardAutonomous` to send **native work cards**, with recipient identity and receipt verification.
+- Four gates: `ENABLE_SENDING=true`, `ENABLE_AUTO_SHARING=true`, recipient **定时主动分享** toggle, and enabled plan. Browsing additionally requires `ENABLE_AUTO_BROWSING=true`. Everything is off by default.
+- Limits: max 2 attempted shares per recipient per rolling 24h, 12 globally, ≥30 minutes between attempts to the same recipient, and no repeat of a video to the same recipient. Missed slots are not replayed after restart.
+- An uncertain send is saved as a blocking receipt and is never automatically retried. Review the real Douyin conversation before resolving it.
+- **Not live-validated**: actual Douyin share-panel UI and browser navigation in headless Chromium. CI tests exercise code with fakes only. Test with a consenting contact first. See [docs/automation.md](docs/automation.md).
+
 ## v0.6.0: send/receive image stickers (private + group)
 
 - **Incoming sticker/emoji cards:** Recognized Douyin `media.type='emoji'` cards now produce an OneBot text event even when no text exists; when `RECEIVE_STICKERS=true` (default), an exact-card image screenshot is attached as an image segment when upstream capture is available. Screenshots are rate-limited per conversation.

@@ -23,6 +23,8 @@ export function configFromEnv(env=process.env){
     allowlist:new Set((env.ALLOWED_CONVERSATIONS??'').split(',').map(x=>x.trim()).filter(Boolean)),
     enableSending:env.ENABLE_SENDING==='true',enableImageSending:env.ENABLE_IMAGE_SENDING==='true',
     receiveStickers:env.RECEIVE_STICKERS!=='false',groupTrigger:env.GROUP_TRIGGER??'all',
-    shareForwarding:env.SHARED_VIDEO_FORWARDING!=='false',videoSampleSeconds
+    shareForwarding:env.SHARED_VIDEO_FORWARDING!=='false',videoSampleSeconds,
+    enableAutoBrowsing:env.ENABLE_AUTO_BROWSING==='true',
+    enableAutoSharing:env.ENABLE_AUTO_SHARING==='true'
   };
 }
