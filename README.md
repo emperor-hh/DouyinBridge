@@ -8,7 +8,7 @@
 
 **开源协议：** [Apache License 2.0](LICENSE) · [版权与归属声明](NOTICE) · [第三方许可说明](THIRD_PARTY_NOTICES.md)
 
-**社区与安全：** [贡献指南](CONTRIBUTING.md) · [漏洞报告](SECURITY.md) · [公开发布检查清单](docs/public-release-checklist.md)
+**社区与安全：** [贡献指南](CONTRIBUTING.md) · [漏洞报告](SECURITY.md)
 
 **重要说明：** DouyinBridge 并非抖音官方接口，也不是独立 AI 聊天机器人。它负责浏览器交互、会话识别、消息转换与发送权限控制；AI 回复、视觉模型和插件能力由 AstrBot 提供。项目的自动化逻辑和上游网页适配仍在验证，**GitHub Actions 单元测试通过不代表真实抖音账号下的收发功能已经完成端到端测试**。
 
@@ -460,7 +460,7 @@ npm test       # 执行离线单元测试
 
 - 发现涉及令牌、账号、Cookie、后台越权或任意文件读取的安全问题，请先阅读 [SECURITY.md](SECURITY.md)，优先通过 GitHub 私密安全报告提交，**不要在公开 Issue、PR 或日志里粘贴凭据**。
 - 想贡献代码、文档或测试，请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。PR 需要说明平台测试范围，不应声称真实抖音账号已通过而缺少证据。
-- 本项目仍处于预览阶段。开放源码前的人工核查项见 [公开发布检查清单](docs/public-release-checklist.md)，尤其注意旧提交中第三方兼容补丁与作者元数据。
+- 本项目仍处于预览阶段。
 
 ## 开发路线与致谢
 
