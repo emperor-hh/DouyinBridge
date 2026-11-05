@@ -1,97 +1,451 @@
 # DouyinLuma
 
-Experimental Douyin **private + group** message transport for AstrBot via OneBot v11. DouyinLuma uses an independent persistent Chromium browser and delegates all AI, persona and plugin handling to AstrBot. SnowLuma and QQ remain separate.
+> 一个基于 **Chromium 浏览器自动化 + OneBot v11 反向 WebSocket** 的抖音消息桥接项目，让 [AstrBot](https://github.com/AstrBotDevs/AstrBot) 能够处理经过授权的抖音私聊与群聊消息，并探索视频卡片、图片表情包、自动浏览与定时分享等能力。
 
-## v0.7.0: scheduled browse → candidate pool → native Douyin video card sharing
+**当前版本：v0.7.0｜开发实验阶段｜优先支持 Windows 本地部署**
 
-New **disabled-by-default** per-conversation daily plans are managed in the local Web UI.
+**重要说明：** DouyinLuma 并非抖音官方接口，也不是独立 AI 聊天机器人。它负责浏览器交互、会话识别、消息转换与发送权限控制；AI 回复、视觉模型和插件能力由 AstrBot 提供。项目的自动化逻辑和上游网页适配仍在验证，**GitHub Actions 单元测试通过不代表真实抖音账号下的收发功能已经完成端到端测试**。
 
-- Each plan selects a verified private chat or group, a Beijing-time browsing slot, a sharing slot, optional topic-search keyword, browse count (1–10) and share count (1–2).
-- Browser automation verifies visible video identity, plays briefly and saves observed candidates in SQLite. Exact Douyin public video links may also be added manually. This is not AI video understanding or scoring.
-- At the share slot, the scheduler calls the pinned upstream `VideoForwarder.forwardAutonomous` to send **native work cards**, with recipient identity and receipt verification.
-- Four gates: `ENABLE_SENDING=true`, `ENABLE_AUTO_SHARING=true`, recipient **定时主动分享** toggle, and enabled plan. Browsing additionally requires `ENABLE_AUTO_BROWSING=true`. Everything is off by default.
-- Limits: max 2 attempted shares per recipient per rolling 24h, 12 globally, ≥30 minutes between attempts to the same recipient, and no repeat of a video to the same recipient. Missed slots are not replayed after restart.
-- An uncertain send is saved as a blocking receipt and is never automatically retried. Review the real Douyin conversation before resolving it.
-- **Not live-validated**: actual Douyin share-panel UI and browser navigation in headless Chromium. CI tests exercise code with fakes only. Test with a consenting contact first. See [docs/automation.md](docs/automation.md).
+## 目录
 
-## v0.6.0: send/receive image stickers (private + group)
+- [项目简介](#项目简介)
+- [功能概览](#功能概览)
+- [运行架构](#运行架构)
+- [环境要求](#环境要求)
+- [Windows 快速开始](#windows-快速开始)
+- [Web 管理后台与会话授权](#web-管理后台与会话授权)
+- [视频分享与按需画面采样](#视频分享与按需画面采样)
+- [图片表情包收发](#图片表情包收发)
+- [自动浏览与定时分享](#自动浏览与定时分享)
+- [环境变量说明](#环境变量说明)
+- [数据持久化与更新](#数据持久化与更新)
+- [测试与问题排查](#测试与问题排查)
+- [已知限制与安全说明](#已知限制与安全说明)
+- [开发路线与致谢](#开发路线与致谢)
 
-- **Incoming sticker/emoji cards:** Recognized Douyin `media.type='emoji'` cards now produce an OneBot text event even when no text exists; when `RECEIVE_STICKERS=true` (default), an exact-card image screenshot is attached as an image segment when upstream capture is available. Screenshots are rate-limited per conversation.
-- **Sending image stickers:** AstrBot OneBot v11 `send_private_msg` or `send_group_msg` can send one image segment containing `data.file='base64://...'`. Supported file signatures: PNG, JPEG, GIF, WebP; 12 bytes–8MB. This reuses the upstream `ChatBrowser.sendImageMessage` upload-preview/watermark/confirmed-receipt path; no blind click or automatic retry on uncertainty.
-- **Gates:** `ENABLE_SENDING=true` and `ENABLE_IMAGE_SENDING=true`, plus the specific conversation's **发送表情图片** Web UI toggle (off by default). All three must be enabled. Conversation authorization changes apply without a restart; `.env` flags require a restart.
-- **Unsupported:** Native Douyin sticker-picker IDs, remote URLs, arbitrary local file paths, text+image mixed sends, and multiple images in one OneBot action. Ordinary Unicode emoji such as 🙂 already work as text.
-- This is **browser image upload**, not native sticker-library click. Real account delivery is still unverified; start with a disposable test contact and keep sending off until tested. [docs/stickers.md](docs/stickers.md) explains formats and limitations.
+## 项目简介
 
-## v0.5.0: opt-in real timed video playback sampling
+DouyinLuma 使用独立的**持久化 Chromium 浏览器**访问抖音网页，并尝试将已授权的消息会话转换为 OneBot v11 事件，通过反向 WebSocket 发送给 AstrBot；当 AstrBot 返回消息时，再通过网页端执行相应发送操作。
 
-DouyinLuma can now open an explicitly authorized Douyin shared-work video in a **temporary Chromium tab**, mute/play for up to 5 seconds (default 3), collect 3 actual timestamped JPEG frames, verify time progress and visible video identity, pause/close the tab, and forward the frames to AstrBot as OneBot image segments. This is partial visual observation, not full video or audio understanding.
+核心设计原则：
 
-**Off by default for every private conversation and group.** After upgrading, enable both the regular allowlist and **按需视频分时采样** in the Web admin UI. Users must explicitly request video analysis (e.g. “帮我分析这个视频”) after sending a card; groups additionally require an @mention of the bot and a card by the same member. A bare video share NEVER auto-plays. The nearest eligible card within 8 recent messages is used. Sampling quotas: 5 attempts per conversation per rolling 24 hours, 30 globally per rolling 24 hours, at least 90 seconds between attempts in one conversation, with persistent SQLite reservations. Set `VIDEO_SAMPLE_SECONDS=3` (1-5 allowed) in `.env`; changing it requires restart.
+- **私聊、群聊统一接入**：仅处理能够核实稳定身份、且已在本地后台授权的会话。
+- **浏览器默认无头**：日常以 Headless 模式运行；首次扫码登录及排错可使用可视化 Chromium。
+- **授权默认关闭**：新发现的联系人不自动加入白名单，机器人主动发送另需全局开关。
+- **动态管理**：会话白名单和媒体权限存储在本地 SQLite，后台调整无需重启。
+- **消息与视频分离**：普通消息监听不需要自动播放视频；视频采样与自动浏览使用独立页面。
+- **保守处理发送结果**：对无法确认的原生分享不自动重试，避免重复发送。
 
-The real playback/screenshot path has only been unit-tested with fakes, not a logged-in Douyin account. Actual Chrome UI, iframe, playback restrictions, media CORS, AstrBot image ingestion and group @ handling require Windows end-to-end tests. Read [docs/video-sampling.md](docs/video-sampling.md).
+## 功能概览
 
-## v0.4.0: shared video/photo card forwarding (private + group)
+| 功能 | 当前实现与说明 |
+| --- | --- |
+| 抖音私聊消息 | 已编写消息读取与 OneBot 转发逻辑；真实账号需联调 |
+| 抖音群聊消息 | 已编写群成员识别、消息读取与 OneBot 转发逻辑；真实账号需联调 |
+| OneBot v11 反向 WebSocket | 支持连接 AstrBot，处理基础消息与发送动作 |
+| Chromium 无头运行 | 已实现持久化浏览器启动；无头登录恢复仍需环境验证 |
+| 首次登录 / 调试 | 使用可视化 Chromium 手动登录，复用本地 Profile |
+| 联系人发现 | 可扫描当前网页会话，区分私聊和群聊；不保证发现全部好友 |
+| Web 管理后台 | 本机访问、令牌鉴权、动态白名单及媒体权限 |
+| 抖音分享视频 / 图文卡片 | 可提取经过核验的可见卡片元信息并转发 AstrBot |
+| 按需视频分时采样 | 经明确触发后，短时静音播放并截取画面；非完整视频理解 |
+| 图片表情包接收 | 识别表情卡片，尽可能转发文字说明与截图 |
+| 图片表情包发送 | 支持 OneBot 单张 PNG / JPEG / GIF / WebP Base64 图片 |
+| 自动浏览视频 | 可按时浏览推荐流或关键词搜索，将可核实作品保存到候选池 |
+| 定时分享视频 | 可为指定私聊或群聊配置定时原生视频卡片分享；尚需真实端到端验证 |
+| Linux / Docker | **尚未完成正式适配与部署验证** |
 
-Authorized Douyin shared-work cards can now reach AstrBot as OneBot text messages, even if the card contains **no text**. They contain visible card title, author, and a strictly validated Douyin work link when available. This is **not** video understanding. The gateway does not autonomously open or play shared videos. `SHARED_VIDEO_FORWARDING=true` by default; set false to disable.
+> “已实现”表示相应源码和离线测试已经编写，并不意味着抖音网页 UI、账号限制或浏览器环境发生变化后仍可稳定运行。
 
-The management console has an independent **视频卡片封面** toggle for each private chat/group (off by default). When enabled, a newly received private-chat card or an explicitly @-mentioned group-chat card may include one JPEG screenshot of the card as an OneBot `base64://` image segment. AstrBot image parsing and upstream screenshots still require real-world validation. See [docs/shared-video.md](docs/shared-video.md).
+## 运行架构
 
-## v0.3.0: Web management console + dynamic authorization
+```text
+                         抖音网页（douyin.com）
+                                   │
+                    Chromium 持久化浏览器
+                     ├─ 消息 / 联系人页面
+                     ├─ 按需视频采样页面
+                     └─ 自动浏览 / 分享页面
+                                   │
+                              DouyinLuma
+                     ├─ 上游聊天浏览器适配
+                     ├─ 私聊 / 群聊消息网关
+                     ├─ OneBot v11 协议转换
+                     ├─ SQLite 权限 / 候选池 / 回执
+                     └─ Web 管理控制台
+                                   │
+                     OneBot v11 反向 WebSocket
+                                   │
+                                AstrBot
+                        ├─ AI 对话与模型
+                        ├─ 图片理解
+                        └─ 插件与工作流
+```
 
-- **Default:** Headless Chromium (`node --env-file=.env src/index.mjs`).
-- **First login:** Visible Chromium (`node --env-file=.env src/index.mjs --login`).
-- **Debug:** Visible Chromium (`node --env-file=.env src/index.mjs --visible`).
-- **Admin:** `http://127.0.0.1:3219/` (local computer only). Use the admin token printed in terminal, or configure `ADMIN_TOKEN` of at least 20 characters in `.env`.
-- **Contacts:** Click **重新扫描抖音会话**. Private and group conversations are shown independently. Enable or disable each verified conversation; changes persist in `data/allowlist.sqlite` **without restarting**.
+项目复用 [LockyBee/dsh-douyin-agent](https://github.com/LockyBee/dsh-douyin-agent) 的部分网页解析、聊天身份核验、图片上传和原生分享能力；**不需要额外运行上游的完整机器人、独立 EXE 或 QQ 客户端**。
 
-Do not run two processes using one browser profile. After manual login, stop the login process before starting the gateway. Only contacts with verified stable identity can be authorized. Scanning the current message list does not guarantee that all Douyin friends and groups are discoverable.
+## 环境要求
 
-## Windows developer setup
+当前建议使用 **Windows 10 / 11** 进行安装、扫码和浏览器联调。
+
+| 项目 | 要求 |
+| --- | --- |
+| Node.js | **22.13 或以上**的兼容版本 |
+| Git | 用于拉取仓库与固定版本的上游源码 |
+| npm | 安装 DouyinLuma 依赖 |
+| pnpm | 安装固定版本的上游依赖 |
+| PowerShell | 执行 Windows 上游安装脚本 |
+| Chromium / Playwright | 由浏览器运行组件提供，需与当前环境兼容 |
+| AstrBot | 需要配置可接收 OneBot v11 反向 WebSocket 连接的端点 |
+| 抖音 | 可正常访问网页并由本人完成扫码登录的账号 |
+
+> **Docker 提示：** 目前仓库没有经过验证的 Linux Docker 正式部署方案。虽然 Chromium 可以在 Linux 容器中无头运行，但上游仍存在 Windows 专属依赖和浏览器管理逻辑，不能直接把本地启动命令视为可用的 Docker 部署方案。
+
+## Windows 快速开始
+
+以下示例使用 PowerShell，假设准备将项目放在 `C:\work\code\DouyinLuma`。如果已经克隆过项目，可跳过克隆步骤，直接在项目目录执行 `git pull`。
+
+### 1. 获取源码
 
 ```powershell
-cd C:\work\code\DouyinLuma
-git pull
+cd C:\work\code
+git clone https://github.com/emperor-hh/DouyinLuma.git
+cd DouyinLuma
+```
+
+### 2. 安装依赖
+
+```powershell
 npm install
+
+# 首次安装时执行：拉取仓库固定提交的 dsh-douyin-agent 并安装其依赖
 powershell -ExecutionPolicy Bypass -File scripts/install-upstream.ps1
-Copy-Item .env.example .env  # only if .env does not exist
+```
+
+上游安装脚本会切换到项目指定的提交，不会自动跟随上游主分支升级。如果提示找不到 `pnpm`，请先安装或启用 pnpm，再重新执行安装脚本。
+
+### 3. 创建配置文件
+
+```powershell
+# 已存在 .env 时不覆盖
+if (-not (Test-Path .env)) {
+    Copy-Item .env.example .env
+}
+```
+
+编辑 `.env`，至少检查与 AstrBot 连接有关的配置：
+
+```ini
+# AstrBot 所在的 OneBot v11 WebSocket 监听地址
+ONEBOT_WS_URL=ws://127.0.0.1:6200/ws
+
+# 必须与 AstrBot 侧设置一致
+ONEBOT_ACCESS_TOKEN=请替换为你的连接密钥
+
+# 日常无头运行
+BROWSER_MODE=headless
+BROWSER_CHANNEL=chromium
+
+# 先保持关闭，避免测试阶段实际向联系人发消息
+ENABLE_SENDING=false
+ENABLE_IMAGE_SENDING=false
+ENABLE_AUTO_BROWSING=false
+ENABLE_AUTO_SHARING=false
+```
+
+`127.0.0.1:6200/ws` **仅是项目默认示例地址**，必须根据 AstrBot 的实际监听地址和端口调整。若 AstrBot 位于其他机器或 Docker 容器，不能直接照抄 `127.0.0.1`。
+
+### 4. 首次手动登录抖音
+
+```powershell
 node --env-file=.env src/index.mjs --login
-# Ctrl+C after manual login, then:
+```
+
+程序会打开可视化浏览器。请自行扫码登录抖音，确认网页版已登录，然后在终端按 **Ctrl+C** 正常退出。浏览器资料保存在 `BROWSER_PROFILE_DIR` 指定的目录（默认 `./data/browser-profile`）。
+
+**不要同时运行登录模式与主程序**，两者不能共享正在使用的浏览器 Profile。
+
+### 5. 启动消息网关
+
+```powershell
 node --env-file=.env src/index.mjs
 ```
 
-Open `http://127.0.0.1:3219/`, enter the administrator token printed in the console, refresh conversations, and toggle private chats or groups. Changes take effect immediately for **subsequent gateway events/actions**. Already dispatched messages or a platform send click cannot be retracted.
+默认启动无头 Chromium、Web 管理后台和 OneBot 连接。启动后控制台会输出管理后台 URL、管理员令牌和连接状态。
 
-`ALLOWED_CONVERSATIONS` is migrated into SQLite **once**, when a matching verified contact is discovered; afterward the database is authoritative and editing `.env` does not update the whitelist. You can remove `ALLOWED_CONVERSATIONS` after migration.
-
-## Security
-
-- Admin binds only to 127.0.0.1, requires a separate Bearer token for every API operation, validates Origin, and never exposes tokens to the HTML.
-- Authorization defaults off for newly discovered contacts. No sending when `ENABLE_SENDING=false`.
-- Do not forward port 3219 to the Internet. Never commit `.env`, browser profiles, cookies, chat logs or `data/`.
-- This is a **development integration**, not a production-reliable Douyin bridge. Browser automation, login recovery, real chat/group delivery and some upstream CDP methods remain unverified. The browser-to-OneBot polling still uses only an in-memory watermark and outbound sends have no durable receipts. Keep sending disabled until real account tests and a persistent outbound queue are implemented.
-- A revoked authorization stops new event dispatch and is checked again before a send starts. If a send was already clicked before revocation, the result cannot be revoked retroactively.
-
-## Tests
-
-`npm run check` validates syntax; `npm test` runs offline tests. The project uses Node's built-in `node:sqlite` in Node >=22.13 (experimental warning on some Node versions). CI does not simulate a real Douyin account.
-
-## Provenance
-
-Underlying browser DOM operations are dynamically loaded from [LockyBee/dsh-douyin-agent](https://github.com/LockyBee/dsh-douyin-agent), MIT. The original DSH plugin or EXE is **not** a separate running service. Respect upstream LICENSE and THIRD_PARTY_NOTICES.
-
-## Windows one-click launcher
-
-After setup, double-click `start.cmd` in the project root. It loads `.env`,
-starts the gateway in its configured browser mode (normally headless), and
-keeps the console open. Keep that window open; press Ctrl+C to stop.
-AstrBot/Docker must already be running. The launcher does not restart Docker.
+需要查看网页行为时，可停止主程序，再使用：
 
 ```powershell
-.\start.cmd             # normal start
-.\start.cmd -Visible    # visible browser for debugging
-.\start.cmd -Login      # manual login; Ctrl+C afterward, then normal start
+node --env-file=.env src/index.mjs --visible
 ```
 
-The launcher checks configuration, Node.js and dependencies, and refuses a
-second launcher for the same checkout or a start while the admin port is busy.
-It does not install dependencies or overwrite configuration automatically.
+### 6. Windows 一键启动（可选）
+
+完成前面的依赖安装和 `.env` 配置后，可双击项目根目录的 `start.cmd`，或在 PowerShell 中执行：
+
+```powershell
+.\start.cmd             # 常规启动（默认无头）
+.\start.cmd -Visible    # 打开可视化浏览器调试
+.\start.cmd -Login      # 手动扫码登录
+```
+
+启动器会检查 Node.js、配置、依赖及管理端口占用，并尽力避免同一目录重复启动。它**不会代替你安装依赖、修改配置或启动 AstrBot**。
+
+## Web 管理后台与会话授权
+
+主程序启动后，访问：
+
+**http://127.0.0.1:3219/**
+
+在页面输入终端输出的管理令牌，点击连接，再使用 **重新扫描抖音会话** 读取网页中能够识别的私聊和群聊。
+
+后台目前提供的主要授权：
+
+| 开关 | 作用 | 默认 |
+| --- | --- | --- |
+| 允许 AstrBot 处理 | 允许该会话进入消息网关 | 关闭 |
+| 视频卡片封面 | 接收卡片时按条件附加单张截图 | 关闭 |
+| 按需视频分时采样 | 明确提出分析请求后允许短时播放采样 | 关闭 |
+| 发送表情图片 | 允许向该会话上传图片表情包 | 关闭 |
+| 定时主动分享 | 允许定时任务向该会话分享原生视频卡片 | 关闭 |
+
+权限保存在 `data/allowlist.sqlite`。**在 Web 后台修改权限无需重启**，但已经发生的浏览器点击和消息发送无法撤回。调整 `.env` 的全局开关则需要重启进程。
+
+### 如何查看私聊或群聊的会话 ID？
+
+如果后台无法发现某个会话，可先关闭正在运行的网关，然后执行：
+
+```powershell
+node --env-file=.env src/index.mjs --list-contacts --visible
+```
+
+该命令只读扫描当前网页会话，不连接 AstrBot，也不会主动发送消息。只有身份核验通过的 `conv:` 加 64 位十六进制哈希才是可用的会话 ID。**会话列表不保证包含所有好友或群聊，不能使用昵称代替、猜测或自行生成 ID。**
+
+历史配置 `ALLOWED_CONVERSATIONS` 仅用于向 SQLite 的**首次迁移**。迁移完成后，后台数据库才是白名单的准确信息来源；继续修改 `.env` 中的这一项不会再次覆盖后台授权。
+
+详细说明：[查看会话 ID](docs/contacts.md)。
+
+## 视频分享与按需画面采样
+
+### 接收分享卡片
+
+当已授权会话收到抖音视频 / 图文分享卡片时，网关可以把网页可见的标题、作者以及经过核验的作品链接转换成 OneBot 消息，交给 AstrBot 处理。
+
+这只表示**读取了分享卡片的可见元信息**，并不意味着已经观看视频或听取声音。是否附加封面截图由后台的 **视频卡片封面** 权限控制。
+
+### 用户明确请求分析视频
+
+当用户发送视频分享并明确提出“分析这个视频”等请求时，网关可以在符合权限与身份核验要求的情况下，打开独立的临时 Chromium 页面：
+
+1. 核验视频作品 ID、链接及当前会话。
+2. 静音播放短时间片段（默认约 3 秒，支持 1～5 秒）。
+3. 收集 3 张有时间点信息的画面并转换为 OneBot 图片消息段。
+4. 由 AstrBot 中具备图片理解能力的模型分析这些画面。
+5. 采样结束后尽力暂停并关闭临时页面。
+
+私聊需要明确分析请求；群聊还需要 **@机器人**，且请求人与最近符合条件的视频分享者一致。
+
+采样有持久化限额：**每会话 24 小时 5 次、全局 24 小时 30 次，同一会话至少间隔 90 秒**。
+
+> 视频分时采样不是视频下载、完整视频理解、音频转写或整段内容总结。网页不能提供可验证画面时应明确告知未取得画面，不能凭标题猜测内容。
+
+详细说明：[视频分享卡片](docs/shared-video.md) · [真实视频分时采样](docs/video-sampling.md)。
+
+## 图片表情包收发
+
+DouyinLuma 可以将已授权会话里的抖音表情卡片转为文字说明，并在条件允许时附加单张截图。也可以接收 AstrBot 发送的 OneBot 图片消息，尝试通过抖音网页聊天界面上传图片。
+
+目前支持上传 **PNG、JPEG、GIF、WebP** 图片。发送图片时需同时满足：
+
+- `ENABLE_SENDING=true`；
+- `ENABLE_IMAGE_SENDING=true`；
+- 目标私聊或群聊已启用普通白名单与 **发送表情图片** 权限；
+- 一条发送动作只包含一张图片，使用 OneBot `image` 消息段的 `base64://` 格式。
+
+目前**不支持**直接点选抖音原生表情面板里的指定表情、通过远程 URL 上传、任意本地文件路径上传，以及单次混合多张图片与文字。Unicode 表情（例如 😄）仍可作为普通文字发送。
+
+详细说明：[表情包收发](docs/stickers.md)。
+
+## 自动浏览与定时分享
+
+v0.7.0 增加了独立的自动化任务系统，可按北京时间运行：
+
+```text
+定时浏览推荐流 / 关键词搜索
+              ↓
+核验可见作品 ID 和短时间播放进度
+              ↓
+       SQLite 候选视频池
+              ↓
+       到指定时间执行分享
+              ↓
+  核对目标私聊 / 群聊及独立授权
+              ↓
+    上游原生视频卡片分享器
+              ↓
+     保存确认 / 未确认回执
+```
+
+### 先测试浏览，不启用自动发送
+
+建议先在 `.env` 中配置：
+
+```ini
+ENABLE_AUTO_BROWSING=true
+ENABLE_SENDING=false
+ENABLE_AUTO_SHARING=false
+```
+
+启动主程序后，在 Web 后台 **定时浏览与分享** 区域创建计划，设置目标会话、浏览时间、分享时间、可选搜索主题及数量；新计划**默认关闭**，需人工检查后开启。可以先执行“手动浏览”，查看视频是否正确进入候选池；也可以手工添加格式严格的公开作品地址：
+
+```text
+https://www.douyin.com/video/1234567890123456789
+```
+
+### 验证后才考虑启用分享
+
+需要在测试账号和知情、同意接收的好友或群中核实实际原生卡片发送后，再考虑设置：
+
+```ini
+ENABLE_SENDING=true
+ENABLE_AUTO_SHARING=true
+```
+
+同时必须对目标会话单独开启 **定时主动分享** 权限，并启用相应计划。请注意：`ENABLE_SENDING=true` 也会允许其他已授权会话的普通文字回复。
+
+### 定时任务限制
+
+- 计划时区固定为 **Asia/Shanghai（北京时间）**。
+- 每次浏览 1～10 条作品；每计划每天最多安排 1～2 条分享。
+- 同一收件人滚动 24 小时最多尝试 2 次，全局最多尝试 12 次。
+- 同一收件人两次分享至少间隔 30 分钟；同一视频不会自动重复发送给同一收件人。
+- 每个每日时间槽只领取一次；错过执行窗口不会在重启后集中补发。
+- 如果发送结果不确定，会保留记录并阻止给该收件人的后续自动分享，直到人工检查真实聊天记录。
+
+候选池只保存有限的页面观察结果。**当前没有接入“自动理解整段视频内容并通过 AI 评分”的功能**；搜索主题只是浏览入口，不应被视为内容质量判定。
+
+详细说明：[自动浏览与定时分享](docs/automation.md)。
+
+## 环境变量说明
+
+配置项以仓库中的 [`.env.example`](.env.example) 为准。
+
+| 变量名 | 默认值 | 说明 |
+| --- | --- | --- |
+| `ONEBOT_WS_URL` | `ws://127.0.0.1:6200/ws` | AstrBot 的 OneBot 反向 WebSocket 目标地址 |
+| `ONEBOT_ACCESS_TOKEN` | 示例占位值 | 与 AstrBot 对接所需的访问密钥 |
+| `UPSTREAM_DIR` | `./upstream/dsh-douyin-agent` | 固定版本上游代码目录 |
+| `DATA_DIR` | `./data` | 本地数据库和运行状态根目录 |
+| `BROWSER_MODE` | `headless` | `headless` 或 `visible` |
+| `BROWSER_CHANNEL` | `chromium` | `chromium`、`msedge`、`bundled` |
+| `BROWSER_PROFILE_DIR` | `./data/browser-profile` | 持久化浏览器资料目录 |
+| `POLL_MS` | `2500` | 网关轮询周期，最小 1000 毫秒 |
+| `ADMIN_PORT` | `3219` | 本机 Web 管理端口 |
+| `ADMIN_TOKEN` | 留空 | 留空则启动时生成；手工设置至少 20 字符 |
+| `ALLOWED_CONVERSATIONS` | 留空 | 旧版白名单的一次性 SQLite 迁移输入 |
+| `ENABLE_SENDING` | `false` | 全局消息发送开关 |
+| `ENABLE_IMAGE_SENDING` | `false` | 图片表情包发送总开关，还需要全局发送权限 |
+| `RECEIVE_STICKERS` | `true` | 是否尝试为收到的表情卡片附加截图 |
+| `SHARED_VIDEO_FORWARDING` | `true` | 是否转发分享作品卡片信息 |
+| `VIDEO_SAMPLE_SECONDS` | `3` | 按需视频播放采样时长，范围 1～5 秒 |
+| `ENABLE_AUTO_BROWSING` | `false` | 自动浏览总开关 |
+| `ENABLE_AUTO_SHARING` | `false` | 定时分享总开关，还需要 `ENABLE_SENDING=true` |
+| `GROUP_TRIGGER` | `all` | 群聊触发相关配置，具体能力以当前网关实现为准 |
+
+## 数据持久化与更新
+
+默认 `data/` 下会保存浏览器 Profile、SQLite 白名单与自动分享记录、OneBot 身份映射和部分上游运行状态。
+
+重要目录或文件包括：
+
+```text
+data/
+├── browser-profile/          # Chromium 登录资料（敏感）
+├── allowlist.sqlite          # 白名单、媒体授权、定时计划与发送记录
+├── identities.json           # OneBot 数字 ID 映射
+├── upstream-state/           # 上游运行状态
+└── automation-upstream/      # 原生分享器相关运行状态与回执
+```
+
+以上目录仅展示主要用途，实际文件随运行情况生成。
+
+**更新项目时，请保留 `.env`、`data/` 和浏览器 Profile，不要为了升级而删除运行状态。** 推荐流程：
+
+```powershell
+# 先正常停止正在运行的 DouyinLuma
+cd C:\work\code\DouyinLuma
+
+# 重要：升级前备份 .env 和 data
+git pull
+npm install
+
+# 根据更新说明决定是否需要重新执行上游安装脚本
+node --env-file=.env src/index.mjs
+```
+
+一般情况下，Web 后台修改授权不需要重启；修改 `.env` 或更新源码后需要重启。浏览器资料可在重新启动后尝试复用，**但抖音可能主动使登录状态失效，不能保证永久免扫码**。
+
+## 测试与问题排查
+
+### 本地测试
+
+```powershell
+npm run check  # 检查 JavaScript 语法
+npm test       # 执行离线单元测试
+```
+
+项目使用 Node.js 内置的 `node:sqlite`，某些 Node.js 版本可能输出实验性功能警告。GitHub Actions 自动检查覆盖了部分授权、协议和浏览器模拟场景，**并不能代替真实抖音账号的私聊、群聊、上传、分享与视频采样联调**。
+
+### 常见问题
+
+**1. 启动后看不到联系人或群聊？**
+
+确认当前账号已登录抖音网页，消息入口能够打开，然后从管理后台重新扫描。网页扫描可能只包含当前可见或能够滚动加载的会话，不等于完整通讯录。必要时停止网关并运行 `--list-contacts --visible` 调试。
+
+**2. 修改白名单后需要重启吗？**
+
+不需要。Web 后台的会话与媒体权限写入 SQLite 并对后续操作即时生效；`.env` 的全局发送、自动浏览和自动分享开关则需要重启。
+
+**3. 浏览器要求重新扫码登录？**
+
+关闭主程序，运行 `--login`，人工完成登录或安全验证，再正常停止登录进程后重新启动主程序。不要两个进程共用一个 Profile。
+
+**4. 无法连接 AstrBot？**
+
+检查 `ONEBOT_WS_URL`、端口和访问令牌是否与 AstrBot OneBot v11 监听配置一致。AstrBot 在 Docker 或另一台机器中时，需使用实际可达的网络地址，而不是默认照抄 `127.0.0.1`。
+
+**5. 为什么无法发送图片或自动分享视频？**
+
+首先检查 `ENABLE_SENDING`。图片上传还需要 `ENABLE_IMAGE_SENDING` 和该会话的图片权限；自动分享需要 `ENABLE_AUTO_SHARING`、目标会话的 **定时主动分享** 权限以及已启用的计划。自动分享遇到未确认发送记录后会拒绝继续发送，需先人工核实。
+
+**6. 可以直接部署 Docker 吗？**
+
+当前仓库**尚未提供经验证的 Linux Docker 部署流程**。待解决上游 Windows 依赖、跨平台浏览器控制与容器内登录持久化后再作为正式部署方式。
+
+## 已知限制与安全说明
+
+- 这是实验性网页自动化项目，抖音网页结构、登录验证、浏览器版本或平台策略变化都可能影响功能。
+- 实际账号下的私聊、群聊收发，以及原生分享、图片表情、自动刷视频等复杂路径仍需要独立的端到端验证；请先使用测试账号和愿意接收消息的联系人进行小规模测试。
+- 不保证网页会话列表是全量好友列表，也不保证所有消息历史可以完整恢复。消息轮询的水位主要保存在内存中；**不应直接用于要求严格不漏消息的生产场景**。
+- 自动分享具有独立的 SQLite 发送与不确定回执记录，但这**不等同于所有普通 OneBot 消息都已经实现持久化发送队列**。
+- 管理后台默认只监听本机 `127.0.0.1`，API 需要独立管理员令牌及同源校验。**不要将 3219 端口直接暴露到公网**。
+- 不要把 `.env`、`data/`、浏览器 Cookie、管理员令牌、真实会话记录提交到 Git 仓库或公开传播。
+- 授权撤销可阻止之后的操作，但无法撤回平台已经接收的点击或消息。
+- 视频采样只表示有限画面观察，没有完整音轨、字幕或整段视频语义保证。
+- 项目不提供验证码绕过、设备伪装或无限制群发能力。使用自动浏览和主动分享时应控制频率，尊重接收方意愿和平台规则。
+
+## 开发路线与致谢
+
+下一阶段重点包括：
+
+1. **Linux / Docker 兼容**：隔离上游 Windows Edge 启动依赖，补充 Linux Chromium 运行与容器化。
+2. **登录状态管理**：加强首次登录、会话失效检测、人工验证与 Profile 持久化流程。
+3. **真实账号联调**：优先验证私聊 / 群聊消息读写、图片表情包、视频画面采样和原生卡片分享。
+4. **稳定性**：完善运行健康检查、普通消息持久化水位及可恢复发送队列。
+5. **视频推荐**：在真实浏览与分享稳定后，再考虑可选的 AstrBot 多模态内容筛选。
+
+**上游项目：** [LockyBee/dsh-douyin-agent](https://github.com/LockyBee/dsh-douyin-agent)。DouyinLuma 通过固定提交版本使用其部分浏览器与聊天能力。请遵守上游的 MIT 许可及相关第三方声明。
+
+---
+
+**DouyinLuma 目前面向开发、学习和小规模授权测试，不应被描述为已经验证的生产级抖音消息网关。**
