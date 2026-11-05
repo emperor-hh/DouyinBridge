@@ -4,9 +4,11 @@
 
 **当前版本：v0.7.0｜开发实验阶段｜优先支持 Windows 本地部署**
 
-> **仓库更名过渡提示**：本项目原名 DouyinLuma，源码中的项目名称现已统一为 DouyinBridge。GitHub 仓库网页地址需要仓库管理员另外在 Settings → General 中改为 `emperor-hh/DouyinBridge`；在此之前旧仓库 URL 仍然是有效的克隆入口。
+**仓库地址：** [emperor-hh/DouyinBridge](https://github.com/emperor-hh/DouyinBridge)。项目原名 DouyinLuma；本地已有旧目录可直接更新，无需删除登录数据。
 
 **开源协议：** [Apache License 2.0](LICENSE) · [版权与归属声明](NOTICE) · [第三方许可说明](THIRD_PARTY_NOTICES.md)
+
+**社区与安全：** [贡献指南](CONTRIBUTING.md) · [漏洞报告](SECURITY.md) · [公开发布检查清单](docs/public-release-checklist.md)
 
 **重要说明：** DouyinBridge 并非抖音官方接口，也不是独立 AI 聊天机器人。它负责浏览器交互、会话识别、消息转换与发送权限控制；AI 回复、视觉模型和插件能力由 AstrBot 提供。项目的自动化逻辑和上游网页适配仍在验证，**GitHub Actions 单元测试通过不代表真实抖音账号下的收发功能已经完成端到端测试**。
 
@@ -26,6 +28,7 @@
 - [测试与问题排查](#测试与问题排查)
 - [已知限制与安全说明](#已知限制与安全说明)
 - [开源协议与第三方版权](#开源协议与第三方版权)
+- [安全问题与参与贡献](#安全问题与参与贡献)
 - [开发路线与致谢](#开发路线与致谢)
 
 ## 项目简介
@@ -114,7 +117,7 @@ DouyinBridge 使用独立的**持久化 Chromium 浏览器**访问抖音网页�
 
 ```powershell
 cd C:\work\code
-git clone https://github.com/emperor-hh/DouyinLuma.git DouyinBridge
+git clone https://github.com/emperor-hh/DouyinBridge.git
 cd DouyinBridge
 ```
 
@@ -127,7 +130,7 @@ npm install
 powershell -ExecutionPolicy Bypass -File scripts/install-upstream.ps1
 ```
 
-上游安装脚本会切换到项目指定的提交，不会自动跟随上游主分支升级。如果提示找不到 `pnpm`，请先安装或启用 pnpm，再重新执行安装脚本。
+上游安装脚本会切换到项目指定的提交，不会自动跟随上游主分支升级。如果提示找不到 `pnpm`，请先安装或启用 pnpm（例如在支持 Corepack 的 Node.js 环境中使用 `corepack enable`），再重新执行安装脚本。上游是独立的 MIT 项目，不要将其运行目录提交进本仓库。
 
 ### 3. 创建配置文件
 
@@ -452,6 +455,12 @@ npm test       # 执行离线单元测试
 - 项目并非抖音官方产品。开源许可证不代替抖音、AstrBot 或其他服务的使用规则。
 
 详细法律条款以英文 [LICENSE](LICENSE) 正文为准，本文中文仅作说明。
+
+## 安全问题与参与贡献
+
+- 发现涉及令牌、账号、Cookie、后台越权或任意文件读取的安全问题，请先阅读 [SECURITY.md](SECURITY.md)，优先通过 GitHub 私密安全报告提交，**不要在公开 Issue、PR 或日志里粘贴凭据**。
+- 想贡献代码、文档或测试，请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。PR 需要说明平台测试范围，不应声称真实抖音账号已通过而缺少证据。
+- 本项目仍处于预览阶段。开放源码前的人工核查项见 [公开发布检查清单](docs/public-release-checklist.md)，尤其注意旧提交中第三方兼容补丁与作者元数据。
 
 ## 开发路线与致谢
 

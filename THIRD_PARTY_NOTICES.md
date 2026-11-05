@@ -31,11 +31,13 @@
 
 上述说明不是锁定依赖清单。实际版本以 `package-lock.json`、上游锁文件和运行环境为准；制作离线安装包或 Docker 镜像时，应额外审计镜像中**真实打包**的依赖及许可文本。
 
-## 4. 第三方插件兼容补丁
+## 4. 历史兼容补丁与公开发布风险
 
-`docs/patches/private-companion-douyin-media.patch` 是针对 [menglimi/astrbot_plugin_private_companion](https://github.com/menglimi/astrbot_plugin_private_companion) 的**独立兼容补丁**。它包含目标项目的代码上下文和补丁差异，并非 DouyinBridge 网关的自有源文件。
+早期私有仓库历史中曾包含针对 [menglimi/astrbot_plugin_private_companion](https://github.com/menglimi/astrbot_plugin_private_companion) 的独立兼容补丁。它包含目标项目的源码上下文，并非 DouyinBridge 网关的原创实现。由于无法确认相关第三方代码的再分发授权，**本次从当前发布树中移除了该补丁及其安装文档**。
 
-该项目当前检视的根目录未发现可用于本补丁的独立 `LICENSE` 文件；**不能据此推定其源代码按 Apache-2.0、MIT 或其他开源协议授权**。本仓库的 Apache-2.0 声明不适用于该补丁中的第三方代码上下文。计划将此补丁或包含它的衍生作品再分发时，请先核对目标项目的实际许可条件并取得必要授权。
+**删除当前分支中的文件并不会从 Git 历史中删除它。** 在将包含早期提交的整个仓库变为公开之前，应取得适当授权，或在得到仓库所有者同意后准备不携带该历史的干净公开仓库。详见 [公开发布检查清单](docs/public-release-checklist.md)。
+
+本项目 Apache-2.0 许可证不会为该第三方补丁或其历史副本提供授权。
 
 ## 5. 商标、平台和服务
 

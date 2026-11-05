@@ -1,5 +1,40 @@
-node_modules/
-data/
+# Local configuration and secrets
 .env
-upstream/
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.secrets.json
+*.credentials.json
+
+# Browser, chat state, cached identities, and databases
+/data/
+/upstream/
+**/browser-profile/
+**/user-data-dir/
+**/playwright-profile/
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+*.db-journal
+*.db-wal
+*.db-shm
+*.bak
+*.backup
+
+# Dependencies, temporary outputs and logs
+node_modules/
+coverage/
+dist/
+tmp/
 *.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

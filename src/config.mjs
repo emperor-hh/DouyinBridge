@@ -4,6 +4,9 @@ export function configFromEnv(env=process.env){
   if(!Number.isInteger(pollMs)||pollMs<1000)throw Error('POLL_MS must be >= 1000');
   const url=new URL(env.ONEBOT_WS_URL??'ws://127.0.0.1:6200/ws');
   if(!['ws:','wss:'].includes(url.protocol))throw Error('ONEBOT_WS_URL must be ws(s)');
+  const onebotToken=env.ONEBOT_ACCESS_TOKEN??'';
+  if(['change-to-strong-secret','请替换为你的连接密钥'].includes(onebotToken.trim()))
+    throw Error('ONEBOT_ACCESS_TOKEN is a placeholder; configure a strong token matching AstrBot');
   const browserMode=(env.BROWSER_MODE??'headless').trim().toLowerCase();
   if(!['headless','visible'].includes(browserMode))throw Error('BROWSER_MODE must be headless or visible');
   const browserChannel=(env.BROWSER_CHANNEL??'chromium').trim().toLowerCase();
@@ -15,7 +18,7 @@ export function configFromEnv(env=process.env){
     throw Error('VIDEO_SAMPLE_SECONDS must be 1-5');
   const data=path.resolve(env.DATA_DIR??'./data');
   return {
-    url:url.toString(),token:env.ONEBOT_ACCESS_TOKEN??'',
+    url:url.toString(),token:onebotToken,
     upstream:path.resolve(env.UPSTREAM_DIR??'./upstream/dsh-douyin-agent'),
     data,profileDir:path.resolve(env.BROWSER_PROFILE_DIR??path.join(data,'browser-profile')),
     browserMode,browserChannel,pollMs,adminPort,adminToken:env.ADMIN_TOKEN??'',

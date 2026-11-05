@@ -27,3 +27,10 @@ test('stable identity requirement',()=>{
 test('default disables sends and empty allowlist',()=>{
   const c=configFromEnv({});assert.equal(c.enableSending,false);assert.equal(c.allowlist.size,0);
 });
+
+test('rejects placeholder OneBot access token and allows explicit custom token',()=>{
+  for(const token of ['change-to-strong-secret','请替换为你的连接密钥'])
+    assert.throws(()=>configFromEnv({ONEBOT_ACCESS_TOKEN:token}),/placeholder/);
+  assert.equal(configFromEnv({ONEBOT_ACCESS_TOKEN:'example-real-connection-token-please-replace'}).token,
+    'example-real-connection-token-please-replace');
+});
