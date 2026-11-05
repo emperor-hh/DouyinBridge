@@ -1,0 +1,2 @@
+# Keep reusable unified patches byte-stable; blank context lines contain one space.
+docs/patches/*.patch text eol=lf whitespace=-blank-at-eol

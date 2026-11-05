@@ -66,3 +66,20 @@ Open `http://127.0.0.1:3219/`, enter the administrator token printed in the cons
 ## Provenance
 
 Underlying browser DOM operations are dynamically loaded from [LockyBee/dsh-douyin-agent](https://github.com/LockyBee/dsh-douyin-agent), MIT. The original DSH plugin or EXE is **not** a separate running service. Respect upstream LICENSE and THIRD_PARTY_NOTICES.
+
+## Windows one-click launcher
+
+After setup, double-click `start.cmd` in the project root. It loads `.env`,
+starts the gateway in its configured browser mode (normally headless), and
+keeps the console open. Keep that window open; press Ctrl+C to stop.
+AstrBot/Docker must already be running. The launcher does not restart Docker.
+
+```powershell
+.\start.cmd             # normal start
+.\start.cmd -Visible    # visible browser for debugging
+.\start.cmd -Login      # manual login; Ctrl+C afterward, then normal start
+```
+
+The launcher checks configuration, Node.js and dependencies, and refuses a
+second launcher for the same checkout or a start while the admin port is busy.
+It does not install dependencies or overwrite configuration automatically.

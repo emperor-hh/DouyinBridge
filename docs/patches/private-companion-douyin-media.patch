@@ -1,0 +1,48 @@
+--- a/llm_tool_actions.py
++++ b/llm_tool_actions.py
+@@ -1840,7 +1840,24 @@
+         )
+ 
+     def _creative_work_query_instruction_matches(self, text: Any) -> bool:
+-        normalized = _single_line(text, 260)
++        # DouyinLuma appends external media evidence after the user's text.
++        # Its metadata (e.g. "作品ID" / "内容范围") is not a request to read
++        # this bot's creative bookshelf. Preserve any actual user query before it.
++        media_parts = re.split(
++            r"(?m)^\[(?:抖音分享(?:视频|图文)|抖音视频实际分时采样)\][ \t]*$",
++            str(text or ""),
++            maxsplit=1,
++        )
++        user_text = media_parts[0]
++        if len(media_parts) > 1 and not any(
++            anchor in user_text for anchor in (
++                "资料柜", "书架", "作品柜", "创作柜", "你写的", "你写过的",
++                "你以前写的", "你之前写的", "你最近写的", "你创作的",
++                "你创作过的", "自己写的", "自己创作的",
++            )
++        ):
++            return False
++        normalized = _single_line(user_text, 260)
+         if not normalized:
+             return False
+         technical_file_terms = (
+--- a/tests/test_creative_chat_tool.py
++++ b/tests/test_creative_chat_tool.py
+@@ -178,6 +178,17 @@
+ 
+         self.assertIn("讲一个、编一个或说一个新故事", harness._creative_work_tool_instruction())
+ 
++    def test_douyin_media_metadata_is_not_a_bookshelf_query(self) -> None:
++        harness = _CreativeToolHarness()
++        for marker in ("[抖音分享视频]", "[抖音分享图文]", "[抖音视频实际分时采样]"):
++            for prefix in ("", "看看这个视频\n", "总结一下这个作品\n"):
++                text = prefix + marker + "\n标题：小说第三部分\n作品ID：7704280240000575210\n内容范围：仅卡片元数据，未逐页读取图文。"
++                with self.subTest(marker=marker, prefix=prefix):
++                    self.assertFalse(harness._creative_work_query_instruction_matches(text))
++            self.assertTrue(harness._creative_work_query_instruction_matches(
++                "讲讲你写的《札记 1》这一部分\n" + marker + "\n作品ID：123\n内容范围：卡片"
++            ))
++
+     def test_technical_files_do_not_trigger_creative_work_read(self) -> None:
+         harness = _CreativeToolHarness()
+         for text in (
