@@ -46,7 +46,15 @@ export async function createAutomationBrowser({session,upstreamDir,dataDir,chat}
   let active=false,closed=false,videoPage=null;
   const limits=scopedVideoLimits(stateDir,()=>active&&!closed);
   const controller=new BrowserController({source:'api',videoLimits:limits,controlDirectory:controlDir});
-  controller.browser=session.browser;
+  // Upstream BrowserController.withPage closes its browser on abort.
+  // Never let an automation cancellation close the shared Douyin chat context.
+  controller.browser={
+    isConnected:()=>session.browser.isConnected(),
+    contexts:()=>session.browser.contexts(),
+    close:async()=>{
+      if(videoPage&&!videoPage.isClosed())await videoPage.close().catch(()=>{});
+    }
+  };
   const forwarder=new VideoForwarder({controller,chatBrowser:chat,videoLimits:limits,
     stateDir,source:'api'});
   async function pageForVideo(){
@@ -151,7 +159,21 @@ export async function createAutomationBrowser({session,upstreamDir,dataDir,chat}
       const stored={...contact,name:contact.name??contact.displayName,
         authorizationKind:'manual',verifiedAt:new Date().toISOString()};
       try{
-        await pageForVideo();
+        // The upstream autonomous forwarding API intentionally does not accept
+        // an arbitrary URL. Select the saved candidate by navigating our own
+        // dedicated video tab, then validate its real player identity.
+        const page=await pageForVideo();
+        await page.goto(url,{waitUntil:'domcontentloaded',timeout:20000});
+        await page.evaluate(label=>{window.name=label;},LABEL);
+        let selected=false;
+        for(let i=0;i<30;i++){
+          signal?.throwIfAborted();
+          const state=await page.evaluate(readPageState);
+          checkState(state);
+          if(candidate(state)?.videoId===videoId){selected=true;break;}
+          await wait(400,signal);
+        }
+        if(!selected)throw Error('当前页面没有核实到计划中的作品，未进入原生分享');
         const tmp=policy+'.'+randomUUID()+'.tmp';
         try{
           fs.writeFileSync(tmp,JSON.stringify({allowlist:[stored]}),{flag:'wx',mode:0o600});

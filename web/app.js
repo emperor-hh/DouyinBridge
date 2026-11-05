@@ -131,7 +131,7 @@ function renderAutomation(){
    opt.value=c.id;target.append(opt);
  }
  if([...target.options].some(x=>x.value===previous))target.value=previous;
- $('plan-create').disabled=!a.browsingGloballyEnabled||target.options.length===0;
+ $('plan-create').disabled=target.options.length===0;
  const plans=$('plan-rows');plans.replaceChildren();
  for(const p of a.plans){
    const tr=el('tr'),identity=el('td'),recipient=contacts.find(c=>c.id===p.conversationId);

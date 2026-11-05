@@ -138,9 +138,8 @@ test('global share gate and per-recipient revoke prevent delivery',async()=>{
     scheduler.share(f.auto.plan(p.id),signal)),/总开关/);
   f.allowed.setAutoShareEnabled(f.direct.id,false);
   scheduler.config.enableAutoSharing=true;
-  const skipped=await scheduler.exclusive(p.id,'share',signal=>
-    scheduler.share(f.auto.plan(p.id),signal));
-  assert.equal(skipped.status,'skipped');
+  await assert.rejects(()=>scheduler.exclusive(p.id,'share',signal=>
+    scheduler.share(f.auto.plan(p.id),signal)),/权限尚未核实/);
   assert.equal(called,0);
   await scheduler.stop();
  }finally{f.close();}
