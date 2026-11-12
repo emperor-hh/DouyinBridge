@@ -16,7 +16,7 @@
     "check": "node --check src/index.mjs && node --check src/gateway.mjs && node --check src/allowlist-store.mjs && node --check src/web-admin.mjs && node --check src/browser-session.mjs && node --check src/douyin-driver.mjs && node --check src/contact-list.mjs && node --check src/shared-work.mjs && node --check src/onebot-format.mjs && node --check src/video-sampler.mjs && node --check src/video-trigger.mjs && node --check src/sticker.mjs && node --check src/automation-store.mjs && node --check src/automation-browser.mjs && node --check src/automation-scheduler.mjs && node --check web/app.js"
   },
   "dependencies": {
-    "ws": "^8.18.3"
+    "ws": "^8.22.2"
   },
   "license": "Apache-2.0",
   "repository": {
